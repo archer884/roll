@@ -28,12 +28,10 @@ impl Display for ExpressionResult {
         // We print segments in the reverse of parsed order because
         // segments are parsed in reverse order to begin with.
         let segments = self.segments.iter().rev();
-        let mut segments = segments.map(|x| {
-            match x.highlight {
-                Highlight::Std => (&*x.value.to_string()).into(),
-                Highlight::Max => x.value.to_string().green(),
-                Highlight::Min => x.value.to_string().red(),
-            }
+        let mut segments = segments.map(|x| match x.highlight {
+            Highlight::Std => (&*x.value.to_string()).into(),
+            Highlight::Max => x.value.to_string().green(),
+            Highlight::Min => x.value.to_string().red(),
         });
 
         if let Some(segment) = segments.by_ref().next() {
@@ -57,11 +55,8 @@ impl FromIterator<SegmentResult> for ExpressionResult {
             total += seg.value;
             segments.push(seg);
         }
-        
-        Self {
-            total,
-            segments,
-        }
+
+        Self { total, segments }
     }
 }
 
@@ -106,7 +101,7 @@ fn realize_dice_expression(
     exp: &DiceExpression,
     provider: &mut BoundedRngProvider,
 ) -> SegmentResult {
-    let max = exp.max;
+    let max = exp.count * exp.max;
     let min = exp.count * if exp.max.is_positive() { 1 } else { -1 };
     let sum: i32 = (0..exp.count).map(|_| provider.next(max)).sum();
 
