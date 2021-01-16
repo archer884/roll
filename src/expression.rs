@@ -1,4 +1,4 @@
-use std::{iter::FromIterator, str::FromStr};
+use std::{fmt::Display, iter::FromIterator, str::FromStr};
 
 use crate::{bounded_rng::BoundedRngProvider, error::Error, Result};
 
@@ -17,13 +17,50 @@ impl FromIterator<PartialExpression> for Expression {
 
 #[derive(Clone, Debug)]
 pub struct ExpressionResult {
+    total: i32,
     segments: Vec<SegmentResult>,
+}
+
+impl Display for ExpressionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use colored::Colorize;
+
+        // We print segments in the reverse of parsed order because
+        // segments are parsed in reverse order to begin with.
+        let segments = self.segments.iter().rev();
+        let mut segments = segments.map(|x| {
+            match x.highlight {
+                Highlight::Std => (&*x.value.to_string()).into(),
+                Highlight::Max => x.value.to_string().green(),
+                Highlight::Min => x.value.to_string().red(),
+            }
+        });
+
+        if let Some(segment) = segments.by_ref().next() {
+            write!(f, "{} :: {}", self.total, segment)?;
+        }
+
+        for segment in segments {
+            write!(f, " {}", segment)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl FromIterator<SegmentResult> for ExpressionResult {
     fn from_iter<T: IntoIterator<Item = SegmentResult>>(iter: T) -> Self {
+        let mut total = 0;
+        let mut segments = Vec::new();
+
+        for seg in iter {
+            total += seg.value;
+            segments.push(seg);
+        }
+        
         Self {
-            segments: iter.into_iter().collect(),
+            total,
+            segments,
         }
     }
 }
@@ -124,11 +161,11 @@ fn parse_dice_expression(s: &str) -> Result<DiceExpression> {
     };
 
     let mut parts = s
-        .trim_start_matches(|u| u == 'd' || u == 'D')
+        .trim_start_matches(|u| u == '+' || u == 'd' || u == 'D')
         .split(|u| u == 'd' || u == 'D');
-    let left = dbg!(parts
+    let left = parts
         .next()
-        .ok_or_else(|| Error::BadExpression(s.to_string()))?);
+        .ok_or_else(|| Error::BadExpression(s.to_string()))?;
     let right = parts.next();
 
     if parts.next().is_some() {

@@ -20,6 +20,6 @@ fn main() {
     let mut provider = BoundedRngProvider::new();
 
     for exp in expressions {
-        println!("{:#?}", exp.realize(&mut provider));
+        println!("{}", exp.realize(&mut provider));
     }
 }
