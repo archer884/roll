@@ -101,16 +101,16 @@ fn realize_dice_expression(
     exp: &DiceExpression,
     provider: &mut BoundedRngProvider,
 ) -> SegmentResult {
-    let max = exp.count * exp.max;
-    let min = exp.count * if exp.max.is_positive() { 1 } else { -1 };
+    let max = exp.max;
+    let min = if exp.max.is_positive() { 1 } else { -1 };
     let sum: i32 = (0..exp.count).map(|_| provider.next(max)).sum();
 
     match sum {
-        sum if sum == max => SegmentResult {
+        sum if sum == max * exp.count => SegmentResult {
             highlight: Highlight::Max,
             value: sum,
         },
-        sum if sum == min => SegmentResult {
+        sum if sum == min * exp.count => SegmentResult {
             highlight: Highlight::Min,
             value: sum,
         },
