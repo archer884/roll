@@ -1,13 +1,11 @@
-mod bounded_rng;
-mod error;
-mod expression;
+mod rng;
 
-use bounded_rng::BoundedRngProvider;
+use std::fmt::Display;
+
 use clap::{crate_authors, crate_version, Clap};
-use error::Error;
-use expression::Expression;
-
-type Result<T, E = Error> = std::result::Result<T, E>;
+use colored::{ColoredString, Colorize};
+use expr::{CompoundExpression, RealizedCompoundExpression, RealizedExpression};
+use rng::BoundedRngProvider;
 
 /// A dice roller.
 ///
@@ -17,7 +15,53 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Clap, Clone, Debug)]
 #[clap(author = crate_authors!(), version = crate_version!())]
 struct Opts {
-    expressions: Vec<Expression>,
+    expressions: Vec<CompoundExpression>,
+}
+
+struct ResultFormatter {
+    realized: RealizedCompoundExpression,
+}
+
+impl ResultFormatter {
+    fn new(result: RealizedCompoundExpression) -> Self {
+        Self { realized: result }
+    }
+}
+
+impl Display for ResultFormatter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn apply_highlight(result: &RealizedExpression) -> ColoredString {
+            // If this is a constant modifier, it doesn't get highlighted.
+            if result.max == result.min {
+                let formatted = result.realized.to_string();
+                return (&*formatted).clear();
+            }
+
+            match result.realized {
+                x if x == result.max => x.to_string().bright_green(),
+                x if x == result.min => x.to_string().bright_red(),
+                _ => {
+                    let formatted = result.realized.to_string();
+                    (&*formatted).clear()
+                }
+            }
+        }
+
+        let sum = self.realized.sum();
+        let mut results = self.realized.results();
+
+        if let Some(result) = results.by_ref().next() {
+            write!(f, "{} :: {}", sum, apply_highlight(result))?;
+        } else {
+            return f.write_str("Empty result");
+        }
+
+        for result in results {
+            write!(f, " {}", apply_highlight(result))?;
+        }
+
+        Ok(())
+    }
 }
 
 fn main() {
@@ -25,6 +69,6 @@ fn main() {
     let mut provider = BoundedRngProvider::new();
 
     for exp in expressions {
-        println!("{}", exp.realize(&mut provider));
+        println!("{}", ResultFormatter::new(exp.realize(&mut provider)));
     }
 }

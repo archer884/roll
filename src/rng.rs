@@ -1,3 +1,4 @@
+use expr::RngProvider;
 use hashbrown::HashMap;
 use rand::{
     distributions::{DistIter, Distribution, Uniform},
@@ -19,6 +20,12 @@ impl BoundedRngProvider {
             .entry(max)
             .or_insert_with(|| BoundedRng::new(max))
             .next()
+    }
+}
+
+impl RngProvider for BoundedRngProvider {
+    fn next(&mut self, max: i32) -> i32 {
+        BoundedRngProvider::next(self, max)
     }
 }
 

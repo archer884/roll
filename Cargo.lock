@@ -79,6 +79,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "expr"
+version = "0.1.0"
+
+[[package]]
 name = "getrandom"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -234,10 +238,11 @@ dependencies = [
 
 [[package]]
 name = "roll"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "clap",
  "colored",
+ "expr",
  "hashbrown",
  "rand",
  "thiserror",
