@@ -1,4 +1,4 @@
-use expr::RngProvider;
+use expr::RollSource;
 use hashbrown::HashMap;
 use rand::{
     distributions::{DistIter, Distribution, Uniform},
@@ -6,11 +6,11 @@ use rand::{
 };
 
 #[derive(Default)]
-pub struct BoundedRngProvider {
+pub struct RngSource {
     providers: HashMap<i32, BoundedRng>,
 }
 
-impl BoundedRngProvider {
+impl RngSource {
     pub fn new() -> Self {
         Default::default()
     }
@@ -23,9 +23,9 @@ impl BoundedRngProvider {
     }
 }
 
-impl RngProvider for BoundedRngProvider {
+impl RollSource for RngSource {
     fn next(&mut self, max: i32) -> i32 {
-        BoundedRngProvider::next(self, max)
+        RngSource::next(self, max)
     }
 }
 
@@ -33,13 +33,7 @@ struct BoundedRng(DistIter<Uniform<i32>, ThreadRng, i32>);
 
 impl BoundedRng {
     fn new(max: i32) -> Self {
-        if max > 0 {
-            BoundedRng(Uniform::from(1..=max).sample_iter(rand::thread_rng()))
-        } else if max < 0 {
-            BoundedRng(Uniform::from(max..=-1).sample_iter(rand::thread_rng()))
-        } else {
-            panic!("wtf u thinking")
-        }
+        BoundedRng(Uniform::from(1..=max).sample_iter(rand::thread_rng()))
     }
 
     fn next(&mut self) -> i32 {

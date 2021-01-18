@@ -1,11 +1,12 @@
 mod rng;
 
-use std::fmt::Display;
+use std::{fmt::Display, process};
 
 use clap::{crate_authors, crate_version, Clap};
-use colored::{ColoredString, Colorize};
-use expr::{CompoundExpression, RealizedCompoundExpression, RealizedExpression};
-use rng::BoundedRngProvider;
+use colored::Colorize;
+use either::Either;
+use expr::{ExpressionParser, Highlight, RealizedExpression};
+use rng::RngSource;
 
 /// A dice roller.
 ///
@@ -15,60 +16,72 @@ use rng::BoundedRngProvider;
 #[derive(Clap, Clone, Debug)]
 #[clap(author = crate_authors!(), version = crate_version!())]
 struct Opts {
-    expressions: Vec<CompoundExpression>,
+    candidate_expressions: Vec<String>,
 }
 
 struct ResultFormatter {
-    realized: RealizedCompoundExpression,
+    realized: RealizedExpression,
 }
 
 impl ResultFormatter {
-    fn new(result: RealizedCompoundExpression) -> Self {
+    fn new(result: RealizedExpression) -> Self {
         Self { realized: result }
     }
 }
 
 impl Display for ResultFormatter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn apply_highlight(result: &RealizedExpression) -> ColoredString {
-            // If this is a constant modifier, it doesn't get highlighted.
-            if result.max == result.min {
-                let formatted = result.realized.to_string();
-                return (&*formatted).clear();
-            }
+        // Print sum
+        write!(f, "{} ::", self.realized.sum())?;
 
-            match result.realized {
-                x if x == result.max => x.to_string().bright_green(),
-                x if x == result.min => x.to_string().bright_red(),
-                _ => {
-                    let formatted = result.realized.to_string();
-                    (&*formatted).clear()
-                }
-            }
-        }
-
-        let sum = self.realized.sum();
+        // Print rolled values with highlighting
         let mut results = self.realized.results();
 
-        if let Some(result) = results.by_ref().next() {
-            write!(f, "{} :: {}", sum, apply_highlight(result))?;
-        } else {
-            return f.write_str("Empty result");
+        if let Some((highlight, value)) = results.by_ref().next() {
+            let item = match highlight {
+                Highlight::High => Either::Left(value.to_string().bright_green()),
+                Highlight::Low => Either::Left(value.to_string().bright_red()),
+                _ => Either::Right(value),
+            };
+            write!(f, " {}", item)?;
+        }
+        
+        for (highlight, value) in results {
+            let item = match highlight {
+                Highlight::High => Either::Left(value.to_string().bright_green()),
+                Highlight::Low => Either::Left(value.to_string().bright_red()),
+                _ => Either::Right(value),
+            };
+            write!(f, " + {}", item)?;
         }
 
-        for result in results {
-            write!(f, " {}", apply_highlight(result))?;
+        // Print static modifier
+        match self.realized.modifier() {
+            x if x.is_negative() => write!(f, " - {}", x.abs()),
+            x => write!(f, " + {}", x),
         }
-
-        Ok(())
     }
 }
 
 fn main() {
-    let Opts { expressions } = Opts::parse();
-    let mut provider = BoundedRngProvider::new();
+    let Opts {
+        candidate_expressions,
+    } = Opts::parse();
 
-    for exp in expressions {
-        println!("{}", ResultFormatter::new(exp.realize(&mut provider)));
+    let parser = ExpressionParser::new();
+    let mut source = RngSource::new();
+
+    for expression in candidate_expressions {
+        match parser.parse(&expression) {
+            Ok(expression) => {
+                let result = expression.realize(&mut source);
+                println!("{}", ResultFormatter::new(result));
+            }
+
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(1);
+            }
+        }
     }
 }
