@@ -1,12 +1,10 @@
-mod rng;
-
 use std::{fmt::Display, process};
 
 use clap::{crate_authors, crate_version, Clap};
 use colored::Colorize;
 use either::Either;
-use expr::{ExpressionParser, Highlight, RealizedExpression};
-use rng::RngSource;
+use expr::{ExpressionParser, Highlight, Realizer, RealizedExpression};
+use exprng::RandomRealizer;
 
 /// A dice roller.
 ///
@@ -70,12 +68,12 @@ fn main() {
     } = Opts::parse();
 
     let parser = ExpressionParser::new();
-    let mut source = RngSource::new();
+    let mut realizer = RandomRealizer::new();
 
     for expression in candidate_expressions {
         match parser.parse(&expression) {
             Ok(expression) => {
-                let result = expression.realize(&mut source);
+                let result = realizer.realize(&expression);
                 println!("{}", ResultFormatter::new(result));
             }
 

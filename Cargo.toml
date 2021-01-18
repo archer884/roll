@@ -1,6 +1,6 @@
 [package]
 name = "roll"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["J/A <archer884@gmail.com>"]
 edition = "2018"
 
@@ -13,3 +13,4 @@ either = "1.6.1"
 expr = { path = '..\expr\' }
 hashbrown = "0.10.0"
 rand = "0.8.2"
+exprng = { path = '..\exprng\' }

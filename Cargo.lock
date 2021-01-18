@@ -100,11 +100,20 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "expr"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "regex",
  "smallvec",
  "thiserror",
+]
+
+[[package]]
+name = "exprng"
+version = "0.1.1"
+dependencies = [
+ "expr",
+ "hashbrown 0.10.0",
+ "rand",
 ]
 
 [[package]]
@@ -293,12 +302,13 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
 name = "roll"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "clap",
  "colored",
  "either",
  "expr",
+ "exprng",
  "hashbrown 0.10.0",
  "rand",
 ]
