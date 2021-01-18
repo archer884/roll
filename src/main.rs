@@ -96,21 +96,40 @@ fn execute_expressions<'a, I>(candidates: I) -> Result<()>
 where
     I: IntoIterator<Item = &'a str>,
 {
+    /// Extracts an x-suffix from the string, returning the suffix parsed as
+    /// an integer and the non-suffixed string.
+    fn count_expression<'a>(expr: &'a str) -> (usize, &'a str) {
+        match expr.find(|c| c == 'x' || c == 'X') {
+            Some(idx) => {
+                let count = expr[idx + 1..].parse().unwrap_or(1);
+                (count, &expr[..idx])
+            }
+            None => (1, expr),
+        }
+    }
+
     let parser = ExpressionParser::new();
     let aliases = read_config(&get_config_path()?)?;
+    let counted_expressions = candidates.into_iter().map(|expr| count_expression(expr));
+
     let mut realizer = RandomRealizer::new();
 
-    for expression in candidates {
+    for (count, expression) in counted_expressions {
         if let Some(stored_expressions) = aliases.get(expression) {
-            for expression in stored_expressions.iter().map(|x| &x.expression) {
-                let result = realizer.realize(expression);
-                println!("{}", ResultFormatter::new(result));
+            for _ in 0..count {
+                println!("{}", expression);
+                for expression in stored_expressions {
+                    let result = realizer.realize(&expression.expression);
+                    println!("  {} = {}", expression.text, ResultFormatter::new(result));
+                }
             }
         } else {
             match parser.parse(expression.as_ref()) {
                 Ok(expression) => {
-                    let result = realizer.realize(&expression);
-                    println!("{}", ResultFormatter::new(result));
+                    for _ in 0..count {
+                        let result = realizer.realize(&expression);
+                        println!("{}", ResultFormatter::new(result));
+                    }
                 }
 
                 Err(e) => {
@@ -157,7 +176,7 @@ fn rem_alias(alias: &str) -> Result<()> {
 fn list() -> Result<()> {
     let aliases = read_config(&get_config_path()?)?;
     for (alias, expressions) in aliases {
-        println!("> {}", alias);
+        println!("{}", alias);
         for expression in expressions {
             println!("  {}", expression.text);
         }
