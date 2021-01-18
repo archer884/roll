@@ -393,7 +393,7 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
 name = "roll"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "clap",
  "colored",
@@ -403,6 +403,7 @@ dependencies = [
  "exprng",
  "hashbrown",
  "rand",
+ "regex",
  "serde",
  "serde_json",
  "thiserror",

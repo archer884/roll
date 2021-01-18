@@ -16,6 +16,7 @@ use exprng::RandomRealizer;
 use fs::File;
 use hashbrown::HashMap;
 use opts::{Mode, Opts};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 type Result<T, E = error::Error> = std::result::Result<T, E>;
@@ -98,11 +99,12 @@ where
 {
     /// Extracts an x-suffix from the string, returning the suffix parsed as
     /// an integer and the non-suffixed string.
-    fn count_expression<'a>(expr: &'a str) -> (usize, &'a str) {
-        match expr.find(|c| c == 'x' || c == 'X') {
-            Some(idx) => {
-                let count = expr[idx + 1..].parse().unwrap_or(1);
-                (count, &expr[..idx])
+    fn count_expression<'a>(expr: &'a str, pattern: &Regex) -> (usize, &'a str) {
+        match pattern.captures(expr) {
+            Some(suffix) => {
+                let expr = &expr[..suffix.get(0).unwrap().start()];
+                let count = suffix.get(1).unwrap().as_str().parse().unwrap_or(1);
+                (count, expr)
             }
             None => (1, expr),
         }
@@ -110,7 +112,10 @@ where
 
     let parser = ExpressionParser::new();
     let aliases = read_config(&get_config_path()?)?;
-    let counted_expressions = candidates.into_iter().map(|expr| count_expression(expr));
+    let pattern = Regex::new(r#"\[(\d+)\]$"#).unwrap();
+    let counted_expressions = candidates
+        .into_iter()
+        .map(|expr| count_expression(expr, &pattern));
 
     let mut realizer = RandomRealizer::new();
 
