@@ -10,7 +10,7 @@ use rng::RngSource;
 
 /// A dice roller.
 ///
-/// Use expressions like 2d8+d6+5. Results are printed with the total first,
+/// Use expressions like 2d8+5. Results are printed with the total first,
 /// followed by each individual roll. Max rolls (crits) are highlighted in green,
 /// while low rolls are highlighted in red.
 #[derive(Clap, Clone, Debug)]
