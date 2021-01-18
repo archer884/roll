@@ -57,6 +57,7 @@ impl Display for ResultFormatter {
 
         // Print static modifier
         match self.realized.modifier() {
+            0 => Ok(()),
             x if x.is_negative() => write!(f, " - {}", x.abs()),
             x => write!(f, " + {}", x),
         }
