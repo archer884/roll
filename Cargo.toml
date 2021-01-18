@@ -18,8 +18,8 @@ clap = "3.0.0-beta.2"
 colored = "2.0.0"
 directories = "3.0.1"
 either = "1.6.1"
-expr = { path = '..\expr\' }
-exprng = { path = '..\exprng\' }
+expr = { git = 'https://github.com/archer884/expr.git' }
+exprng = { git = 'https://github.com/archer884/exprng.git' }
 hashbrown = { version = "0.9.1", features = ["serde"] }
 rand = "0.8.2"
 regex = "1.4.3"
