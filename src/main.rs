@@ -166,6 +166,10 @@ fn list() -> Result<()> {
 }
 
 fn read_config(path: &Path) -> io::Result<HashMap<String, Vec<StoredExpression>>> {
+    if !path.exists() {
+        return Ok(Default::default());
+    }
+
     let map = serde_json::from_reader(File::open(path)?)?;
     Ok(map)
 }
