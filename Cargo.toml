@@ -1,8 +1,15 @@
 [package]
 name = "roll"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["J/A <archer884@gmail.com>"]
 edition = "2018"
+description = """
+A dice roller.
+
+Use expressions like 2d8+5. Results are printed with the total first, followed
+by each individual roll, followed by the fixed modifier (if any). Max rolls
+(crits) are highlighted in green, while low rolls are highlighted in red.
+"""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,6 +18,10 @@ clap = "3.0.0-beta.2"
 colored = "2.0.0"
 either = "1.6.1"
 expr = { path = '..\expr\' }
-hashbrown = "0.10.0"
-rand = "0.8.2"
 exprng = { path = '..\exprng\' }
+hashbrown = { version = "0.9.1", features = ["serde"] }
+rand = "0.8.2"
+serde = { version = "1.0.119", features = ["derive"] }
+serde_json = "1.0.61"
+thiserror = "1.0.23"
+directories = "3.0.1"

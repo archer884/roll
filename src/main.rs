@@ -1,21 +1,26 @@
-use std::{fmt::Display, process};
+use std::{
+    fmt::Display,
+    fs, io,
+    path::{Path, PathBuf},
+    process,
+};
 
-use clap::{crate_authors, crate_version, Clap};
+mod error;
+mod opts;
+
 use colored::Colorize;
+use directories::BaseDirs;
 use either::Either;
-use expr::{ExpressionParser, Highlight, Realizer, RealizedExpression};
+use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
+use fs::File;
+use hashbrown::HashMap;
+use opts::{Mode, Opts};
+use serde::{Deserialize, Serialize};
 
-/// A dice roller.
-///
-/// Use expressions like 2d8+5. Results are printed with the total first,
-/// followed by each individual roll. Max rolls (crits) are highlighted in green,
-/// while low rolls are highlighted in red.
-#[derive(Clap, Clone, Debug)]
-#[clap(author = crate_authors!(), version = crate_version!())]
-struct Opts {
-    candidate_expressions: Vec<String>,
-}
+type Result<T, E = error::Error> = std::result::Result<T, E>;
+
+static CONFIG: &str = ".roll";
 
 struct ResultFormatter {
     realized: RealizedExpression,
@@ -43,7 +48,7 @@ impl Display for ResultFormatter {
             };
             write!(f, " {}", item)?;
         }
-        
+
         for (highlight, value) in results {
             let item = match highlight {
                 Highlight::High => Either::Left(value.to_string().bright_green()),
@@ -62,25 +67,116 @@ impl Display for ResultFormatter {
     }
 }
 
-fn main() {
-    let Opts {
-        candidate_expressions,
-    } = Opts::parse();
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct StoredExpression {
+    text: String,
+    expression: Expression,
+}
 
+impl StoredExpression {
+    fn new(text: &str, expression: Expression) -> Self {
+        Self {
+            text: text.into(),
+            expression,
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    let opts = Opts::parse();
+    match opts.mode() {
+        Mode::Norm => execute_expressions(opts.candidates()),
+        Mode::Add(alias) => add_alias(alias, opts.candidates()),
+        Mode::Rem(alias) => rem_alias(alias),
+        Mode::List => list(),
+    }
+}
+
+fn execute_expressions<'a, I>(candidates: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a str>,
+{
     let parser = ExpressionParser::new();
+    let aliases = read_config(&get_config_path()?)?;
     let mut realizer = RandomRealizer::new();
 
-    for expression in candidate_expressions {
-        match parser.parse(&expression) {
-            Ok(expression) => {
-                let result = realizer.realize(&expression);
+    for expression in candidates {
+        if let Some(stored_expressions) = aliases.get(expression) {
+            for expression in stored_expressions.iter().map(|x| &x.expression) {
+                let result = realizer.realize(expression);
                 println!("{}", ResultFormatter::new(result));
             }
+        } else {
+            match parser.parse(expression.as_ref()) {
+                Ok(expression) => {
+                    let result = realizer.realize(&expression);
+                    println!("{}", ResultFormatter::new(result));
+                }
 
-            Err(e) => {
-                eprintln!("{}", e);
-                process::exit(1);
+                Err(e) => {
+                    eprintln!("{}", e);
+                    process::exit(1);
+                }
             }
         }
     }
+
+    Ok(())
+}
+
+fn add_alias<'a, I>(alias: &str, candidates: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let parser = ExpressionParser::new();
+    let expressions: expr::Result<Vec<StoredExpression>> = candidates
+        .into_iter()
+        .map(|x| {
+            parser
+                .parse(x.as_ref())
+                .map(|expression| StoredExpression::new(x, expression))
+        })
+        .collect();
+    let expressions = expressions?;
+
+    let path = get_config_path()?;
+    let mut aliases = read_config(&path)?;
+    aliases.insert(alias.into(), expressions);
+    write_config(&path, &aliases)?;
+    Ok(())
+}
+
+fn rem_alias(alias: &str) -> Result<()> {
+    let path = get_config_path()?;
+    let mut aliases = read_config(&path)?;
+    aliases.remove(alias);
+    write_config(&path, &aliases)?;
+    Ok(())
+}
+
+fn list() -> Result<()> {
+    let aliases = read_config(&get_config_path()?)?;
+    for (alias, expressions) in aliases {
+        println!("> {}", alias);
+        for expression in expressions {
+            println!("  {}", expression.text);
+        }
+    }
+    Ok(())
+}
+
+fn read_config(path: &Path) -> io::Result<HashMap<String, Vec<StoredExpression>>> {
+    let map = serde_json::from_reader(File::open(path)?)?;
+    Ok(map)
+}
+
+fn write_config(path: &Path, aliases: &HashMap<String, Vec<StoredExpression>>) -> io::Result<()> {
+    serde_json::to_writer_pretty(File::create(path)?, aliases)?;
+    Ok(())
+}
+
+fn get_config_path() -> io::Result<PathBuf> {
+    let dirs = BaseDirs::new()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "No home directory"))?;
+    Ok(dirs.home_dir().join(CONFIG))
 }
