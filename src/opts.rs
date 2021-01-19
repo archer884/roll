@@ -1,12 +1,21 @@
-use std::iter;
+use std::{borrow::Cow, io, iter, path::PathBuf};
 
 use clap::{crate_authors, crate_description, crate_version, Clap};
+use directories::BaseDirs;
 use either::Either;
+
+use crate::Result;
 
 #[derive(Clap, Clone, Debug)]
 #[clap(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
 pub struct Opts {
+    /// Expressions of the form 2d6. Syntax extensions include r for reroll and
+    /// ! for explode, among others
     candidate_expressions: Vec<String>,
+    /// Store and use configurations for alternative characters by passing the
+    /// character's name here, e.g. "bob"
+    #[clap(short, long)]
+    config: Option<String>,
     #[clap(subcommand)]
     subcmd: Option<SubCommand>,
 }
@@ -30,10 +39,32 @@ impl Opts {
     pub fn mode(&self) -> Mode {
         match self.subcmd {
             None => Mode::Norm,
-            Some(SubCommand::AddAlias(ref add)) => Mode::Add(&add.alias),
+            Some(SubCommand::AddAlias(ref add)) => Mode::Add(&add),
             Some(SubCommand::RemAlias(ref rem)) => Mode::Rem(&rem.alias),
             Some(SubCommand::List) => Mode::List,
         }
+    }
+
+    pub fn config_path<'a>(&self) -> Result<PathBuf> {
+        static CONFIG_BASE: &str = ".roll";
+
+        let dirs = BaseDirs::new()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "No home directory"))?;
+        let filename = self
+            .config
+            .as_ref()
+            .map(|config_extension| {
+                Cow::from(
+                    CONFIG_BASE.to_string()
+                        + "."
+                        + &config_extension
+                            .trim_matches(|c: char| !c.is_ascii_alphabetic())
+                            .to_ascii_lowercase(),
+                )
+            })
+            .unwrap_or_else(|| Cow::from(CONFIG_BASE));
+
+        Ok(dirs.home_dir().join(filename.as_ref()))
     }
 }
 
@@ -49,11 +80,14 @@ enum SubCommand {
 
 /// Store a set of expressions with an alias for easy reuse.
 #[derive(Clap, Clone, Debug)]
-struct AddAlias {
-    /// An easily-remembered name for a set of expressions.
-    alias: String,
-    /// The expressions to be evaluated when the alias is provided.
-    candidate_expressions: Vec<String>,
+pub struct AddAlias {
+    /// An easily-remembered name for a set of expressions
+    pub alias: String,
+    /// A comment or explanation of the stored forumlae
+    #[clap(short, long)]
+    pub comment: Option<String>,
+    /// The expressions to be evaluated when the alias is provided
+    pub candidate_expressions: Vec<String>,
 }
 
 /// Remove a previously stored alias.
@@ -66,7 +100,7 @@ struct RemAlias {
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
     Norm,
-    Add(&'a str),
+    Add(&'a AddAlias),
     Rem(&'a str),
     List,
 }

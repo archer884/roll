@@ -1,27 +1,19 @@
-use std::{
-    fmt::Display,
-    fs, io,
-    path::{Path, PathBuf},
-    process,
-};
+use std::{fmt::Display, fs, io, path::Path, process, slice};
 
 mod error;
 mod opts;
 
 use colored::Colorize;
-use directories::BaseDirs;
 use either::Either;
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
 use fs::File;
 use hashbrown::HashMap;
-use opts::{Mode, Opts};
+use opts::{AddAlias, Mode, Opts};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 type Result<T, E = error::Error> = std::result::Result<T, E>;
-
-static CONFIG: &str = ".roll";
 
 struct ResultFormatter<'a> {
     text: &'a str,
@@ -73,13 +65,29 @@ impl<'a> Display for ResultFormatter<'a> {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+struct Formula {
+    comment: Option<String>,
+    expressions: Vec<StoredExpression>,
+}
+
+impl<'a> IntoIterator for &'a Formula {
+    type Item = &'a StoredExpression;
+
+    type IntoIter = slice::Iter<'a, StoredExpression>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.expressions.iter()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct StoredExpression {
     text: String,
     expression: Expression,
 }
 
 impl StoredExpression {
-    fn new(text: &str, expression: Expression) -> Self {
+    fn new(text: impl Into<String>, expression: Expression) -> Self {
         Self {
             text: text.into(),
             expression,
@@ -89,19 +97,21 @@ impl StoredExpression {
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
+    let config_path = opts.config_path()?;
+
     match opts.mode() {
-        Mode::Norm => execute_expressions(opts.candidates()),
-        Mode::Add(alias) => add_alias(alias, opts.candidates()),
-        Mode::Rem(alias) => rem_alias(alias),
-        Mode::List => list(),
+        Mode::Norm => execute_expressions(&config_path, opts.candidates()),
+        Mode::Add(alias) => add_alias(alias, &config_path),
+        Mode::Rem(alias) => rem_alias(alias, &config_path),
+        Mode::List => list(&config_path),
     }
 }
 
-fn execute_expressions<'a, I>(candidates: I) -> Result<()>
+fn execute_expressions<'a, I>(config: &Path, candidates: I) -> Result<()>
 where
     I: IntoIterator<Item = &'a str>,
 {
-    /// Extracts an x-suffix from the string, returning the suffix parsed as
+    /// Extracts a count suffix from the string, returning the suffix parsed as
     /// an integer and the non-suffixed string.
     fn count_expression<'a>(expr: &'a str, pattern: &Regex) -> (usize, &'a str) {
         match pattern.captures(expr) {
@@ -115,7 +125,7 @@ where
     }
 
     let parser = ExpressionParser::new();
-    let aliases = read_config(&get_config_path()?)?;
+    let aliases = read_config(config)?;
     let pattern = Regex::new(r#"\*(\d+)$"#).unwrap();
     let counted_expressions = candidates
         .into_iter()
@@ -124,10 +134,13 @@ where
     let mut realizer = RandomRealizer::new();
 
     for (count, expression) in counted_expressions {
-        if let Some(stored_expressions) = aliases.get(expression) {
+        if let Some(formula) = aliases.get(expression) {
             for _ in 0..count {
-                println!("{}", expression);
-                for expression in stored_expressions {
+                println!("# {}", expression);
+                if let Some(comment) = &formula.comment {
+                    println!("# {}", comment);
+                }
+                for expression in &formula.expressions {
                     let result = realizer.realize(&expression.expression);
                     println!("  {}", ResultFormatter::new(&expression.text, result));
                 }
@@ -152,48 +165,52 @@ where
     Ok(())
 }
 
-fn add_alias<'a, I>(alias: &str, candidates: I) -> Result<()>
-where
-    I: IntoIterator<Item = &'a str>,
-{
+fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
     let parser = ExpressionParser::new();
-    let expressions: expr::Result<Vec<StoredExpression>> = candidates
-        .into_iter()
-        .map(|x| {
+    let expressions: expr::Result<Vec<StoredExpression>> = add
+        .candidate_expressions
+        .iter()
+        .map(|text| {
             parser
-                .parse(x.as_ref())
-                .map(|expression| StoredExpression::new(x, expression))
+                .parse(text.as_ref())
+                .map(|expression| StoredExpression::new(text, expression))
         })
         .collect();
-    let expressions = expressions?;
 
-    let path = get_config_path()?;
-    let mut aliases = read_config(&path)?;
-    aliases.insert(alias.into(), expressions);
-    write_config(&path, &aliases)?;
+    let mut aliases = read_config(config)?;
+    aliases.insert(
+        add.alias.clone(),
+        Formula {
+            comment: add.comment.clone(),
+            expressions: expressions?,
+        },
+    );
+    write_config(config, &aliases)?;
     Ok(())
 }
 
-fn rem_alias(alias: &str) -> Result<()> {
-    let path = get_config_path()?;
-    let mut aliases = read_config(&path)?;
+fn rem_alias(alias: &str, config: &Path) -> Result<()> {
+    let mut aliases = read_config(config)?;
     aliases.remove(alias);
-    write_config(&path, &aliases)?;
+    write_config(&config, &aliases)?;
     Ok(())
 }
 
-fn list() -> Result<()> {
-    let aliases = read_config(&get_config_path()?)?;
-    for (alias, expressions) in aliases {
-        println!("{}", alias);
-        for expression in expressions {
+fn list(config: &Path) -> Result<()> {
+    let aliases = read_config(config)?;
+    for (alias, formula) in aliases {
+        println!("# {}", alias);
+        if let Some(comment) = &formula.comment {
+            println!("# {}", comment);
+        }
+        for expression in &formula {
             println!("  {}", expression.text);
         }
     }
     Ok(())
 }
 
-fn read_config(path: &Path) -> io::Result<HashMap<String, Vec<StoredExpression>>> {
+fn read_config(path: &Path) -> io::Result<HashMap<String, Formula>> {
     if !path.exists() {
         return Ok(Default::default());
     }
@@ -202,13 +219,7 @@ fn read_config(path: &Path) -> io::Result<HashMap<String, Vec<StoredExpression>>
     Ok(map)
 }
 
-fn write_config(path: &Path, aliases: &HashMap<String, Vec<StoredExpression>>) -> io::Result<()> {
+fn write_config(path: &Path, aliases: &HashMap<String, Formula>) -> io::Result<()> {
     serde_json::to_writer_pretty(File::create(path)?, aliases)?;
     Ok(())
-}
-
-fn get_config_path() -> io::Result<PathBuf> {
-    let dirs = BaseDirs::new()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "No home directory"))?;
-    Ok(dirs.home_dir().join(CONFIG))
 }
