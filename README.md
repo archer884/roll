@@ -46,11 +46,11 @@ $ roll list
 
 Any expression may be repeated by the addition of `*x` at the end, where x is some number. Note that some shells (zsh!) don't appreciate this, so you'll need to quote your expression, e.g. `"2d6*2"`.
 ```shell
-$ roll 2d6[5]
-9 :: 6 + 3
-11 :: 6 + 5
-7 :: 6 + 1
-7 :: 4 + 3
-4 :: 2 + 2
+$ roll 2d6*5
+ 8  ::  2d6  ::   5   3
+ 9  ::  2d6  ::   6   3
+10  ::  2d6  ::   4   6
+ 6  ::  2d6  ::   2   4
+ 4  ::  2d6  ::   2   2
 ```
 This also works for aliases.
