@@ -23,20 +23,24 @@ type Result<T, E = error::Error> = std::result::Result<T, E>;
 
 static CONFIG: &str = ".roll";
 
-struct ResultFormatter {
+struct ResultFormatter<'a> {
+    text: &'a str,
     realized: RealizedExpression,
 }
 
-impl ResultFormatter {
-    fn new(result: RealizedExpression) -> Self {
-        Self { realized: result }
+impl<'a> ResultFormatter<'a> {
+    fn new(text: &'a str, result: RealizedExpression) -> Self {
+        Self {
+            text,
+            realized: result,
+        }
     }
 }
 
-impl Display for ResultFormatter {
+impl<'a> Display for ResultFormatter<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print sum
-        write!(f, "{} ::", self.realized.sum())?;
+        write!(f, "{:>2}  ::  {}  ::  ", self.realized.sum(), self.text)?;
 
         // Print rolled values with highlighting
         let mut results = self.realized.results();
@@ -47,7 +51,7 @@ impl Display for ResultFormatter {
                 Highlight::Low => Either::Left(value.to_string().bright_red()),
                 _ => Either::Right(value),
             };
-            write!(f, " {}", item)?;
+            write!(f, "{:>2}", item)?;
         }
 
         for (highlight, value) in results {
@@ -56,14 +60,14 @@ impl Display for ResultFormatter {
                 Highlight::Low => Either::Left(value.to_string().bright_red()),
                 _ => Either::Right(value),
             };
-            write!(f, " + {}", item)?;
+            write!(f, "  {:>2}", item)?;
         }
 
         // Print static modifier
         match self.realized.modifier() {
             0 => Ok(()),
-            x if x.is_negative() => write!(f, " - {}", x.abs()),
-            x => write!(f, " + {}", x),
+            x if x.is_negative() => write!(f, " (-{})", x.abs()),
+            x => write!(f, "  (+{})", x),
         }
     }
 }
@@ -125,15 +129,15 @@ where
                 println!("{}", expression);
                 for expression in stored_expressions {
                     let result = realizer.realize(&expression.expression);
-                    println!("  {} = {}", expression.text, ResultFormatter::new(result));
+                    println!("  {}", ResultFormatter::new(&expression.text, result));
                 }
             }
         } else {
             match parser.parse(expression.as_ref()) {
-                Ok(expression) => {
+                Ok(compiled) => {
                     for _ in 0..count {
-                        let result = realizer.realize(&expression);
-                        println!("{}", ResultFormatter::new(result));
+                        let result = realizer.realize(&compiled);
+                        println!("{}", ResultFormatter::new(expression, result));
                     }
                 }
 
