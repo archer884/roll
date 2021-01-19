@@ -2,9 +2,7 @@
 
 > A dice roller.
 
-Use expressions like `2d8+5`. Results are printed with the total first, followed by
-each individual roll, followed by the fixed modifier (if any). Max rolls (crits)
-are highlighted in green, while low rolls are highlighted in red.
+Use expressions like `2d8+5`. Results are printed with the total first, by each individual roll, followed by the fixed modifier (if any). Max rolls (crits) are highlighted in green, while low rolls are highlighted in red.
 
 ## Installation
 
@@ -16,39 +14,37 @@ You can get cargo [here](https://rustup.rs/).
 
 ## Saving rolls
 
-Save a set of expressions with an alias. These expressions are stored in
-`~/.roll` in .json format. Only expressions that successfully compile will be
-stored.
+Save a set of expressions with an alias. These expressions are stored in `~/.roll` in .json format. Only expressions that successfully compile will be stored.
 ```shell
-$ roll add attack 1d20+4 2d6+2
+$ roll add attack 1d20+4 2d6r+2 --comment "Two-handed sword; reroll 1s on damage"
 $ roll attack
-attack
-  1d20+4 = 16 :: 12 + 4
-  2d6+2 = 11 :: 3 + 6 + 2
+# attack
+# Two-handed sword; reroll 1s on damage
+  11  ::  1d20+4  ::   7  (+4)
+   7  ::  2d6r+2  ::   2   3  (+2)     
 ```
 Saving another roll with the same alias will overwrite the first.
-
-## Deleting rolls
-
-```shell
-$ roll rm attack
-```
 
 ## Listing rolls
 
 ```shell
 $ roll list
-dex
-  20+9
-atk
-  20+10
-  10r+7
+# attack
+# Two-handed sword; reroll 1s on damage
+  1d20+4
+  2d6r+2
+```
+
+## Deleting rolls
+
+```shell
+$ roll rm attack
+$ roll list
 ```
 
 ## Repeating rolls
 
-Any expression may be repeated by the addition of `[x]` at the end, where x is some
-number.
+Any expression may be repeated by the addition of `*x` at the end, where x is some number. Note that some shells (zsh!) don't appreciate this, so you'll need to quote your expression, e.g. `"2d6*2"`.
 ```shell
 $ roll 2d6[5]
 9 :: 6 + 3
