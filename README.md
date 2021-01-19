@@ -2,7 +2,7 @@
 
 > A dice roller.
 
-Use expressions like 2d8+5. Results are printed with the total first, followed by
+Use expressions like `2d8+5`. Results are printed with the total first, followed by
 each individual roll, followed by the fixed modifier (if any). Max rolls (crits)
 are highlighted in green, while low rolls are highlighted in red.
 
