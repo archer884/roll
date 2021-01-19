@@ -116,7 +116,7 @@ where
 
     let parser = ExpressionParser::new();
     let aliases = read_config(&get_config_path()?)?;
-    let pattern = Regex::new(r#"[\[(](\d+)[)\]]$"#).unwrap();
+    let pattern = Regex::new(r#"\*(\d+)$"#).unwrap();
     let counted_expressions = candidates
         .into_iter()
         .map(|expr| count_expression(expr, &pattern));
