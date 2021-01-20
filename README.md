@@ -54,3 +54,19 @@ $ roll 2d6*5
  4  ::  2d6  ::   2   2
 ```
 This also works for aliases.
+
+## Alternate configuration
+
+> But archer884, you brilliant codesmith, what if I have multiple characters?
+
+Good news, everyone! You can use the `--config` option to swap to an alternate config file. The free man will observe!
+```shell
+$ roll --config bob add attack 1d20-2 1d6-2 --comment "Bob is terrible"
+$ roll list # Note that I'm not calling --config Bob
+$ echo "Note the lack of results. =D Thank God I'm not Bob."
+Note the lack of results. =D Thank God I'm not Bob.
+```
+I'd advise you to use shell aliases or functions in conjunction with this feature, e.g.:
+```shell
+alias bobroll="roll --config bob"
+```
