@@ -12,6 +12,11 @@ pub struct Opts {
     /// Expressions of the form 2d6. Syntax extensions include r for reroll and
     /// ! for explode, among others
     candidate_expressions: Vec<String>,
+
+    /// Print the average value of a roll instead of its result.
+    #[clap(short = 'a', long = "show-average")]
+    show_average: bool,
+
     /// Store and use configurations for alternative characters by passing the
     /// character's name here, e.g. "bob"
     #[clap(short, long)]
@@ -38,7 +43,7 @@ impl Opts {
 
     pub fn mode(&self) -> Mode {
         match self.subcmd {
-            None => Mode::Norm,
+            None => Mode::Norm(self.show_average),
             Some(SubCommand::AddAlias(ref add)) => Mode::Add(&add),
             Some(SubCommand::RemAlias(ref rem)) => Mode::Rem(&rem.alias),
             Some(SubCommand::List) => Mode::List,
@@ -99,7 +104,8 @@ struct RemAlias {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
-    Norm,
+    /// Normal mode. If flag is set, print averages instead of rolling dice.
+    Norm(bool),
     Add(&'a AddAlias),
     Rem(&'a str),
     List,

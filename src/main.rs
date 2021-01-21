@@ -3,7 +3,7 @@ use std::{fmt::Display, fs, io, path::Path, process, slice};
 mod error;
 mod opts;
 
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use either::Either;
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
@@ -17,25 +17,22 @@ type Result<T, E = error::Error> = std::result::Result<T, E>;
 
 struct ResultFormatter<'a> {
     text: &'a str,
-    realized: RealizedExpression,
+    result: &'a RealizedExpression,
 }
 
 impl<'a> ResultFormatter<'a> {
-    fn new(text: &'a str, result: RealizedExpression) -> Self {
-        Self {
-            text,
-            realized: result,
-        }
+    fn new(text: &'a str, result: &'a RealizedExpression) -> Self {
+        Self { text, result }
     }
 }
 
 impl<'a> Display for ResultFormatter<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print sum
-        write!(f, "{:>2}  ::  {}  ::  ", self.realized.sum(), self.text)?;
+        write!(f, "{:>2}  ::  {}  ::  ", self.result.sum(), self.text)?;
 
         // Print rolled values with highlighting
-        let mut results = self.realized.results();
+        let mut results = self.result.results();
 
         if let Some((highlight, value)) = results.by_ref().next() {
             let item = match highlight {
@@ -56,10 +53,10 @@ impl<'a> Display for ResultFormatter<'a> {
         }
 
         // Print static modifier
-        match self.realized.modifier() {
+        match self.result.modifier() {
             0 => Ok(()),
             x if x.is_negative() => write!(f, " (-{})", x.abs()),
-            x => write!(f, "  (+{})", x),
+            x => write!(f, "   +{}", x),
         }
     }
 }
@@ -100,14 +97,16 @@ fn main() -> Result<()> {
     let config_path = opts.config_path()?;
 
     match opts.mode() {
-        Mode::Norm => execute_expressions(&config_path, opts.candidates()),
+        Mode::Norm(show_average) => {
+            execute_expressions(&config_path, opts.candidates(), show_average)
+        }
         Mode::Add(alias) => add_alias(alias, &config_path),
         Mode::Rem(alias) => rem_alias(alias, &config_path),
         Mode::List => list(&config_path),
     }
 }
 
-fn execute_expressions<'a, I>(config: &Path, candidates: I) -> Result<()>
+fn execute_expressions<'a, I>(config: &Path, candidates: I, show_average: bool) -> Result<()>
 where
     I: IntoIterator<Item = &'a str>,
 {
@@ -143,7 +142,18 @@ where
                 }
                 for expression in &formula.expressions {
                     let result = realizer.realize(&expression.expression);
-                    println!("  {}", ResultFormatter::new(&expression.text, result));
+                    if show_average {
+                        println!(
+                            "  {}   {:>4}",
+                            ResultFormatter::new(&expression.text, &result),
+                            compare_to_average(
+                                result.sum(),
+                                expression.expression.average_result()
+                            )
+                        );
+                    } else {
+                        println!("  {}", ResultFormatter::new(&expression.text, &result));
+                    }
                 }
             }
         } else {
@@ -151,7 +161,15 @@ where
                 Ok(compiled) => {
                     for _ in 0..count {
                         let result = realizer.realize(&compiled);
-                        println!("{}", ResultFormatter::new(expression, result));
+                        if show_average {
+                            println!(
+                                "  {}   {:>4}",
+                                ResultFormatter::new(expression, &result),
+                                compare_to_average(result.sum(), compiled.average_result())
+                            );
+                        } else {
+                            println!("  {}", ResultFormatter::new(expression, &result));
+                        }
                     }
                 }
 
@@ -210,6 +228,14 @@ fn list(config: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn compare_to_average(realized: i32, average: f64) -> Either<String, ColoredString> {
+    match realized as f64 / average * 100.0 {
+        n if n >= 150.0 => Either::Right(format!("{:.0}%", n).green()),
+        n if n <= 50.0 => Either::Right(format!("{:.0}%", n).red()),
+        n => Either::Left(format!("{:.0}%", n))
+    }
 }
 
 fn read_config(path: &Path) -> io::Result<HashMap<String, Formula>> {

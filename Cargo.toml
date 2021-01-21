@@ -1,6 +1,6 @@
 [package]
 name = "roll"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["J/A <archer884@gmail.com>"]
 edition = "2018"
 description = """
@@ -23,6 +23,6 @@ exprng = { git = 'https://github.com/archer884/exprng.git' }
 hashbrown = { version = "0.9.1", features = ["serde"] }
 rand = "0.8.2"
 regex = "1.4.3"
-serde = { version = "1.0.119", features = ["derive"] }
+serde = { version = "1.0.120", features = ["derive"] }
 serde_json = "1.0.61"
 thiserror = "1.0.23"
