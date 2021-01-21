@@ -161,8 +161,8 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "expr"
-version = "0.3.1"
-source = "git+https://github.com/archer884/expr.git#2a3ed81a1ec915b31330d9a66209c8d7dff75510"
+version = "0.3.2"
+source = "git+https://github.com/archer884/expr.git#5e1162a740d75354f887e686b1f9a395f7261925"
 dependencies = [
  "regex",
  "serde",
@@ -395,7 +395,7 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
 name = "roll"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "clap",
  "colored",

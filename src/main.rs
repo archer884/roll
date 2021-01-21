@@ -29,7 +29,12 @@ impl<'a> ResultFormatter<'a> {
 impl<'a> Display for ResultFormatter<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print sum
-        write!(f, "{:>2}  ::  {}  ::  ", self.result.sum(), self.text)?;
+        let sum = if self.result.is_critical() {
+            Either::Left(self.result.sum().to_string().bright_green())
+        } else {
+            Either::Right(self.result.sum())
+        };
+        write!(f, "{:>2}  ::  {}  ::  ", sum, self.text)?;
 
         // Print rolled values with highlighting
         let mut results = self.result.results();
@@ -232,8 +237,8 @@ fn list(config: &Path) -> Result<()> {
 
 fn compare_to_average(realized: i32, average: f64) -> Either<String, ColoredString> {
     match realized as f64 / average * 100.0 {
-        n if n >= 150.0 => Either::Right(format!("{:.0}%", n).green()),
-        n if n <= 50.0 => Either::Right(format!("{:.0}%", n).red()),
+        n if n >= 150.0 => Either::Right(format!("{:.0}%", n).bright_green()),
+        n if n <= 50.0 => Either::Right(format!("{:.0}%", n).bright_red()),
         n => Either::Left(format!("{:.0}%", n))
     }
 }
