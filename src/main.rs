@@ -133,6 +133,7 @@ where
 
     let mut realizer = RandomRealizer::new();
 
+    println!();
     for (count, expression) in counted_expressions {
         if let Some(formula) = aliases.get(expression) {
             for _ in 0..count {
@@ -162,6 +163,7 @@ where
         }
     }
 
+    println!();
     Ok(())
 }
 
