@@ -173,12 +173,11 @@ dependencies = [
 [[package]]
 name = "exprng"
 version = "0.1.2"
-source = "git+https://github.com/archer884/exprng.git?branch=feature/squirrel-realizer#0fbff1c477f5ebeb6a24460764312d769a7c6621"
+source = "git+https://github.com/archer884/exprng.git#970dd09dd4ea07b3c6fe71e28b19abcc28a617ae"
 dependencies = [
  "expr",
  "hashbrown",
  "rand",
- "squirrel",
 ]
 
 [[package]]
@@ -200,7 +199,7 @@ checksum = "c9495705279e7140bf035dde1f6e750c162df8b625267cd52cc44e0b156732c8"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi 0.10.1+wasi-snapshot-preview1",
+ "wasi 0.10.2+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -402,7 +401,7 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
 name = "roll"
-version = "0.3.9-alpha"
+version = "0.3.9-beta"
 dependencies = [
  "clap",
  "colored",
@@ -477,7 +476,7 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 [[package]]
 name = "squirrel"
 version = "0.1.0"
-source = "git+https://github.com/archer884/squirrel.git#8434714c3dd9c6cdefd41befa69b1656ac774925"
+source = "git+https://github.com/archer884/squirrel.git#0f6c6b5559bf4f4031ca5f992e3a348594f38b24"
 dependencies = [
  "rand",
 ]
@@ -584,9 +583,9 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
-version = "0.10.1+wasi-snapshot-preview1"
+version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93c6c3420963c5c64bca373b25e77acb562081b9bb4dd5bb864187742186cea9"
+checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "winapi"
