@@ -1,6 +1,5 @@
 use std::{fmt::Display, fs, io, path::Path, process, slice};
 
-mod error;
 mod opts;
 
 use colored::{ColoredString, Colorize};
@@ -12,8 +11,17 @@ use hashbrown::HashMap;
 use opts::{AddAlias, Mode, Opts};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use squirrel::SquirrelRng;
 
-type Result<T, E = error::Error> = std::result::Result<T, E>;
+type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Unable to parse expression: {0}")]
+    Expr(#[from] expr::Error),
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+}
 
 struct ResultFormatter<'a> {
     text: &'a str,
@@ -135,7 +143,7 @@ where
         .into_iter()
         .map(|expr| count_expression(expr, &pattern));
 
-    let mut realizer = RandomRealizer::new();
+    let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
 
     println!();
     for (count, expression) in counted_expressions {

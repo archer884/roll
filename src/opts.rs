@@ -50,7 +50,7 @@ impl Opts {
         }
     }
 
-    pub fn config_path<'a>(&self) -> Result<PathBuf> {
+    pub fn config_path(&self) -> Result<PathBuf> {
         static CONFIG_BASE: &str = ".roll";
 
         let dirs = BaseDirs::new()
