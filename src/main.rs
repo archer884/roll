@@ -37,10 +37,10 @@ impl<'a> ResultFormatter<'a> {
 impl<'a> Display for ResultFormatter<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print sum
-        let sum = if self.result.is_critical() {
-            Either::Left(self.result.sum().to_string().bright_green())
-        } else {
-            Either::Right(self.result.sum())
+        let sum = match self.result {
+            result if result.is_critical() => Either::Left(result.sum().to_string().bright_green()),
+            result if result.sum() == 1 => Either::Left(result.sum().to_string().bright_red()),
+            result => Either::Right(result.sum()),
         };
         write!(f, "{:>2}  ::  {}  ::  ", sum, self.text)?;
 
@@ -247,7 +247,7 @@ fn compare_to_average(realized: i32, average: f64) -> Either<String, ColoredStri
     match realized as f64 / average * 100.0 {
         n if n >= 150.0 => Either::Right(format!("{:.0}%", n).bright_green()),
         n if n <= 50.0 => Either::Right(format!("{:.0}%", n).bright_red()),
-        n => Either::Left(format!("{:.0}%", n))
+        n => Either::Left(format!("{:.0}%", n)),
     }
 }
 
