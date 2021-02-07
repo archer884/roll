@@ -25,5 +25,5 @@ rand = "0.8.3"
 regex = "1.4.3"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0.61"
-squirrel = { git = 'https://github.com/archer884/squirrel.git' }
+squirrel-rng = "0.1.1"
 thiserror = "1.0.23"

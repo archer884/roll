@@ -414,7 +414,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "squirrel",
+ "squirrel-rng",
  "thiserror",
 ]
 
@@ -474,9 +474,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
-name = "squirrel"
-version = "0.1.0"
-source = "git+https://github.com/archer884/squirrel.git#0f6c6b5559bf4f4031ca5f992e3a348594f38b24"
+name = "squirrel-rng"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eaa73ac332a8a50ce738f8ae87957091c13ce8e670ba2cfc050447766674d26"
 dependencies = [
  "rand",
 ]

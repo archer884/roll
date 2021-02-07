@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 use opts::{AddAlias, Mode, Opts};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use squirrel::SquirrelRng;
+use squirrel_rng::SquirrelRng;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
