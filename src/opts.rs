@@ -1,4 +1,8 @@
-use std::{borrow::Cow, io, iter, path::PathBuf};
+use std::{
+    borrow::Cow,
+    io, iter,
+    path::{Path, PathBuf},
+};
 
 use clap::{crate_authors, crate_description, crate_version, Clap};
 use directories::BaseDirs;
@@ -50,26 +54,30 @@ impl Opts {
         }
     }
 
-    pub fn config_path(&self) -> Result<PathBuf> {
+    pub fn path_config(&self) -> Result<PathConfig> {
         static CONFIG_BASE: &str = ".roll";
+        static HISTORY: &str = ".roll.history";
 
         let dirs = BaseDirs::new()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "No home directory"))?;
-        let filename = self
+
+        let config = self
             .config
             .as_ref()
             .map(|config_extension| {
-                Cow::from(
-                    CONFIG_BASE.to_string()
-                        + "."
-                        + &config_extension
-                            .trim_matches(|c: char| !c.is_ascii_alphabetic())
-                            .to_ascii_lowercase(),
-                )
+                let filename = CONFIG_BASE.to_string()
+                    + "."
+                    + &config_extension
+                        .trim_matches(|c: char| !c.is_ascii_alphabetic())
+                        .to_ascii_lowercase();
+                Cow::from(filename)
             })
             .unwrap_or_else(|| Cow::from(CONFIG_BASE));
 
-        Ok(dirs.home_dir().join(filename.as_ref()))
+        Ok(PathConfig {
+            config: dirs.home_dir().join(config.as_ref()),
+            history: dirs.home_dir().join(HISTORY),
+        })
     }
 }
 
@@ -109,4 +117,20 @@ pub enum Mode<'a> {
     Add(&'a AddAlias),
     Rem(&'a str),
     List,
+}
+
+#[derive(Clone, Debug)]
+pub struct PathConfig {
+    config: PathBuf,
+    history: PathBuf,
+}
+
+impl PathConfig {
+    pub fn config(&self) -> &Path {
+        &self.config
+    }
+
+    pub fn history(&self) -> &Path {
+        &self.history
+    }
 }
