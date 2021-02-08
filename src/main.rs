@@ -1,5 +1,6 @@
 use std::{fmt::Display, fs, io, path::Path, process, slice};
 
+mod history;
 mod opts;
 
 use colored::{ColoredString, Colorize};
@@ -8,7 +9,8 @@ use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer
 use exprng::RandomRealizer;
 use fs::File;
 use hashbrown::HashMap;
-use opts::{AddAlias, Mode, Opts};
+use history::History;
+use opts::{AddAlias, Mode, Opts, PathConfig};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
@@ -107,19 +109,17 @@ impl StoredExpression {
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
-    let config_path = opts.config_path()?;
+    let paths = opts.path_config()?;
 
     match opts.mode() {
-        Mode::Norm(show_average) => {
-            execute_expressions(&config_path, opts.candidates(), show_average)
-        }
-        Mode::Add(alias) => add_alias(alias, &config_path),
-        Mode::Rem(alias) => rem_alias(alias, &config_path),
-        Mode::List => list(&config_path),
+        Mode::Norm(show_average) => execute_expressions(&paths, opts.candidates(), show_average),
+        Mode::Add(alias) => add_alias(alias, paths.config()),
+        Mode::Rem(alias) => rem_alias(alias, paths.config()),
+        Mode::List => list(paths.config()),
     }
 }
 
-fn execute_expressions<'a, I>(config: &Path, candidates: I, show_average: bool) -> Result<()>
+fn execute_expressions<'a, I>(paths: &PathConfig, candidates: I, show_average: bool) -> Result<()>
 where
     I: IntoIterator<Item = &'a str>,
 {
@@ -137,13 +137,14 @@ where
     }
 
     let parser = ExpressionParser::new();
-    let aliases = read_config(config)?;
+    let aliases = read_config(paths.config())?;
     let pattern = Regex::new(r#"\*(\d+)$"#).unwrap();
     let counted_expressions = candidates
         .into_iter()
         .map(|expr| count_expression(expr, &pattern));
 
     let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
+    let mut history = History::new(paths.history());
 
     println!();
     for (count, expression) in counted_expressions {
@@ -155,6 +156,7 @@ where
                 }
                 for expression in &formula.expressions {
                     let result = realizer.realize(&expression.expression);
+                    history.insert(&expression.expression, &result);
                     if show_average {
                         println!(
                             "  {}   {:>4}",
@@ -174,6 +176,7 @@ where
                 Ok(compiled) => {
                     for _ in 0..count {
                         let result = realizer.realize(&compiled);
+                        history.insert(&compiled, &result);
                         if show_average {
                             println!(
                                 "  {}   {:>4}",
@@ -195,7 +198,7 @@ where
     }
 
     println!();
-    Ok(())
+    Ok(history.write()?)
 }
 
 fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
