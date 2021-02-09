@@ -1,7 +1,9 @@
-use std::{io, path::Path};
+use std::{fs::OpenOptions, io, path::Path};
 
-use expr::{Expression, RealizedExpression};
+use chrono::Utc;
+use clap::crate_version;
 use hashbrown::HashMap;
+use io::BufWriter;
 
 #[derive(Clone, Debug)]
 pub struct History<'a> {
@@ -17,14 +19,55 @@ impl<'a> History<'a> {
         }
     }
 
-    pub fn insert(&mut self, expression: &Expression, realization: &RealizedExpression) {
-        self.history
-            .entry(expression.num_sides())
-            .or_default()
-            .extend(realization.results().map(|x| x.1));
+    pub fn append_log(&mut self, log: HashMap<i32, impl AsRef<[i32]>>) {
+        for (key, values) in log {
+            self.history.entry(key).or_default().extend(values.as_ref());
+        }
     }
 
-    pub fn write(mut self) -> io::Result<()> {
-        todo!()
+    pub fn write(self) -> io::Result<()> {
+        use std::io::Write;
+
+        static PROGRAM_VERSION: &str = crate_version!();
+
+        let mut buf = String::new();
+        let mut history = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.path)
+            .map(BufWriter::new)?;
+
+        let timestamp = format!("{}", Utc::now().format("%F %R"));
+
+        for (key, values) in self.history {
+            writeln!(
+                history,
+                "{}|{}|{}:{}",
+                timestamp,
+                PROGRAM_VERSION,
+                key,
+                format_values(&mut buf, &values)
+            )?;
+        }
+
+        Ok(())
     }
+}
+
+fn format_values<'a>(buf: &'a mut String, values: &[i32]) -> &'a str {
+    use std::fmt::Write;
+
+    buf.clear();
+
+    let mut values = values.iter().copied();
+
+    if let Some(first) = values.next() {
+        write!(buf, "{}", first).unwrap();
+    }
+
+    for n in values {
+        write!(buf, ",{}", n).unwrap();
+    }
+
+    buf
 }
