@@ -14,6 +14,7 @@ by each individual roll, followed by the fixed modifier (if any). Max rolls
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "0.4.19"
 clap = "3.0.0-beta.2"
 colored = "2.0.0"
 directories = "3.0.1"

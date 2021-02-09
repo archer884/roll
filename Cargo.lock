@@ -74,6 +74,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time",
+ "winapi",
+]
+
+[[package]]
 name = "clap"
 version = "3.0.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -162,7 +175,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 [[package]]
 name = "expr"
 version = "0.3.3"
-source = "git+https://github.com/archer884/expr.git#9a472492964c0fdf0c249a5141a7cd64b58b96eb"
+source = "git+https://github.com/archer884/expr.git#5caad777a7bfdd49e726d9e27aa192af6dbb2383"
 dependencies = [
  "regex",
  "serde",
@@ -172,12 +185,13 @@ dependencies = [
 
 [[package]]
 name = "exprng"
-version = "0.1.2"
-source = "git+https://github.com/archer884/exprng.git#1d1e94dc26ae591c6756c8d0c6bbc43d9dc6878b"
+version = "0.2.0"
+source = "git+https://github.com/archer884/exprng.git#6c1e160989ceb8e975d0783aa85ec0f8e9724e8f"
 dependencies = [
  "expr",
  "hashbrown",
  "rand",
+ "smallvec",
 ]
 
 [[package]]
@@ -199,7 +213,7 @@ checksum = "c9495705279e7140bf035dde1f6e750c162df8b625267cd52cc44e0b156732c8"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi 0.10.2+wasi-snapshot-preview1",
+ "wasi 0.10.0+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -263,6 +277,25 @@ name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
+
+[[package]]
+name = "num-integer"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+dependencies = [
+ "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "once_cell"
@@ -403,6 +436,7 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 name = "roll"
 version = "0.3.10"
 dependencies = [
+ "chrono",
  "clap",
  "colored",
  "directories",
@@ -547,6 +581,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
+dependencies = [
+ "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
+ "winapi",
+]
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,9 +629,9 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
-version = "0.10.2+wasi-snapshot-preview1"
+version = "0.10.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "winapi"

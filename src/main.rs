@@ -144,6 +144,7 @@ where
         .map(|expr| count_expression(expr, &pattern));
 
     let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
+    let mut realizer = realizer.with_logging();
     let mut history = History::new(paths.history());
 
     println!();
@@ -156,7 +157,6 @@ where
                 }
                 for expression in &formula.expressions {
                     let result = realizer.realize(&expression.expression);
-                    history.insert(&expression.expression, &result);
                     if show_average {
                         println!(
                             "  {}   {:>4}",
@@ -176,7 +176,6 @@ where
                 Ok(compiled) => {
                     for _ in 0..count {
                         let result = realizer.realize(&compiled);
-                        history.insert(&compiled, &result);
                         if show_average {
                             println!(
                                 "  {}   {:>4}",
@@ -198,6 +197,7 @@ where
     }
 
     println!();
+    history.append_log(realizer.finalize());
     Ok(history.write()?)
 }
 
