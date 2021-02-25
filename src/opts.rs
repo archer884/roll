@@ -25,6 +25,7 @@ pub struct Opts {
     /// character's name here, e.g. "bob"
     #[clap(short, long)]
     config: Option<String>,
+
     #[clap(subcommand)]
     subcmd: Option<SubCommand>,
 }
