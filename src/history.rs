@@ -1,9 +1,9 @@
 use std::{fs::OpenOptions, io, path::Path};
 
 use chrono::Utc;
-use clap::crate_version;
 use hashbrown::HashMap;
 use io::BufWriter;
+use structopt::clap::crate_version;
 
 #[derive(Clone, Debug)]
 pub struct History<'a> {

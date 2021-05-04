@@ -4,35 +4,37 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{crate_authors, crate_description, crate_version, Clap};
 use directories::BaseDirs;
 use either::Either;
+use structopt::{
+    clap::{crate_authors, crate_description, crate_version},
+    StructOpt,
+};
 
 use crate::Result;
 
-#[derive(Clap, Clone, Debug)]
-#[clap(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
+#[derive(Clone, Debug, StructOpt)]
+#[structopt(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
 pub struct Opts {
     /// Expressions of the form 2d6. Syntax extensions include r for reroll and
     /// ! for explode, among others
     candidate_expressions: Vec<String>,
 
     /// Print the average value of a roll instead of its result.
-    #[clap(short = 'a', long = "show-average")]
+    #[structopt(short = "a", long = "show-average")]
     show_average: bool,
 
     /// Store and use configurations for alternative characters by passing the
     /// character's name here, e.g. "bob"
-    #[clap(short, long)]
+    #[structopt(short, long)]
     config: Option<String>,
-
-    #[clap(subcommand)]
+    #[structopt(subcommand)]
     subcmd: Option<SubCommand>,
 }
 
 impl Opts {
     pub fn parse() -> Self {
-        Clap::parse()
+        StructOpt::from_args()
     }
 
     pub fn candidates(&self) -> impl Iterator<Item = &str> {
@@ -82,30 +84,30 @@ impl Opts {
     }
 }
 
-#[derive(Clap, Clone, Debug)]
+#[derive(Clone, Debug, StructOpt)]
 enum SubCommand {
-    #[clap(name = "add")]
+    #[structopt(name = "add")]
     AddAlias(AddAlias),
-    #[clap(name = "rm")]
+    #[structopt(name = "rm")]
     RemAlias(RemAlias),
-    #[clap(name = "list")]
+    #[structopt(name = "list")]
     List,
 }
 
 /// Store a set of expressions with an alias for easy reuse.
-#[derive(Clap, Clone, Debug)]
+#[derive(Clone, Debug, StructOpt)]
 pub struct AddAlias {
     /// An easily-remembered name for a set of expressions
     pub alias: String,
     /// A comment or explanation of the stored forumlae
-    #[clap(short, long)]
+    #[structopt(short, long)]
     pub comment: Option<String>,
     /// The expressions to be evaluated when the alias is provided
     pub candidate_expressions: Vec<String>,
 }
 
 /// Remove a previously stored alias.
-#[derive(Clap, Clone, Debug)]
+#[derive(Clone, Debug, StructOpt)]
 struct RemAlias {
     /// Alias to be removed
     alias: String,
