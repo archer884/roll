@@ -1,6 +1,6 @@
 [package]
 name = "roll"
-version = "0.3.12"
+version = "0.3.13"
 authors = ["J/A <archer884@gmail.com>"]
 edition = "2021"
 description = """
