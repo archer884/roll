@@ -3,14 +3,13 @@ use std::{fmt::Display, fs, io, path::Path, process, slice};
 mod history;
 mod opts;
 
-use colored::{ColoredString, Colorize};
-use either::Either;
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
 use fs::File;
 use hashbrown::HashMap;
 use history::History;
 use opts::{AddAlias, Mode, Opts, PathConfig};
+use owo_colors::OwoColorize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
@@ -39,32 +38,37 @@ impl<'a> ResultFormatter<'a> {
 impl<'a> Display for ResultFormatter<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print sum
-        let sum = match self.result {
-            result if result.is_critical() => Either::Left(result.sum().to_string().bright_green()),
-            result if result.sum() == 1 => Either::Left(result.sum().to_string().bright_red()),
-            result => Either::Right(result.sum()),
-        };
-        write!(f, "{:>2}  ::  {}  ::  ", sum, self.text)?;
+        match self.result {
+            result if result.is_critical() => {
+                write!(f, "{:>2}  ::  {}  ::  ", result.sum().bright_green(), self.text)?;
+            }
+            result if result.sum() == 1 => {
+                write!(f, "{:>2}  ::  {}  ::  ", result.sum().bright_red(), self.text)?;
+            }
+            result => {
+                write!(f, "{:>2}  ::  {}  ::  ", result.sum(), self.text)?;
+            }
+        }
 
         // Print rolled values with highlighting
         let mut results = self.result.results();
 
         if let Some((highlight, value)) = results.by_ref().next() {
-            let item = match highlight {
-                Highlight::High => Either::Left(value.to_string().bright_green()),
-                Highlight::Low => Either::Left(value.to_string().bright_red()),
-                _ => Either::Right(value),
-            };
-            write!(f, "{:>2}", item)?;
+            match highlight {
+                Highlight::High => {
+                    write!(f, "{:>2}", value.bright_green())?;
+                }
+                Highlight::Low => {
+                    write!(f, "{:>2}", value.bright_red())?;
+                },
+                Highlight::Normal => {
+                    write!(f, "{:>2}", value)?;
+                },
+            }
         }
 
         for (highlight, value) in results {
-            let item = match highlight {
-                Highlight::High => Either::Left(value.to_string().bright_green()),
-                Highlight::Low => Either::Left(value.to_string().bright_red()),
-                _ => Either::Right(value),
-            };
-            write!(f, "  {:>2}", item)?;
+            write_with_highlight(f, value, highlight)?;
         }
 
         // Print static modifier
@@ -73,6 +77,21 @@ impl<'a> Display for ResultFormatter<'a> {
             x if x.is_negative() => write!(f, " (-{})", x.abs()),
             x => write!(f, "   +{}", x),
         }
+    }
+}
+
+#[inline(always)]
+fn write_with_highlight(f: &mut std::fmt::Formatter, value: i32, highlight: Highlight) -> std::fmt::Result {
+    match highlight {
+        Highlight::High => {
+            write!(f, ", {:>2}", value.bright_green())
+        }
+        Highlight::Low => {
+            write!(f, ", {:>2}", value.bright_red())
+        },
+        Highlight::Normal => {
+            write!(f, ", {:>2}", value)
+        },
     }
 }
 
@@ -103,6 +122,22 @@ impl StoredExpression {
         Self {
             text: text.into(),
             expression,
+        }
+    }
+}
+
+enum Highlighted<T> {
+    Green(T),
+    Red(T),
+    Standard(T),
+}
+
+impl<T: Display> Display for Highlighted<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Highlighted::Green(item) => write!(f, "{}", item.bright_green()),
+            Highlighted::Red(item) => write!(f, "{}", item.bright_red()),
+            Highlighted::Standard(item) => write!(f, "{}", item),
         }
     }
 }
@@ -228,7 +263,7 @@ fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
 fn rem_alias(alias: &str, config: &Path) -> Result<()> {
     let mut aliases = read_config(config)?;
     aliases.remove(alias);
-    write_config(&config, &aliases)?;
+    write_config(config, &aliases)?;
     Ok(())
 }
 
@@ -246,11 +281,11 @@ fn list(config: &Path) -> Result<()> {
     Ok(())
 }
 
-fn compare_to_average(realized: i32, average: f64) -> Either<String, ColoredString> {
+fn compare_to_average(realized: i32, average: f64) -> Highlighted<String> {
     match realized as f64 / average * 100.0 {
-        n if n >= 150.0 => Either::Right(format!("{:.0}%", n).bright_green()),
-        n if n <= 50.0 => Either::Right(format!("{:.0}%", n).bright_red()),
-        n => Either::Left(format!("{:.0}%", n)),
+        n if n >= 150.0 => Highlighted::Green(format!("{:.0}%", n)),
+        n if n <= 50.0 => Highlighted::Red(format!("{:.0}%", n)),
+        n => Highlighted::Standard(format!("{:.0}%", n)),
     }
 }
 

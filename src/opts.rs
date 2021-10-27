@@ -4,37 +4,34 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use clap::{crate_authors, crate_description, crate_version, Parser};
 use directories::BaseDirs;
 use either::Either;
-use structopt::{
-    clap::{crate_authors, crate_description, crate_version},
-    StructOpt,
-};
 
 use crate::Result;
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
+#[derive(Clone, Debug, Parser)]
+#[clap(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
 pub struct Opts {
     /// Expressions of the form 2d6. Syntax extensions include r for reroll and
     /// ! for explode, among others
     candidate_expressions: Vec<String>,
 
     /// Print the average value of a roll instead of its result.
-    #[structopt(short = "a", long = "show-average")]
+    #[clap(short = 'a', long = "show-average")]
     show_average: bool,
 
     /// Store and use configurations for alternative characters by passing the
     /// character's name here, e.g. "bob"
-    #[structopt(short, long)]
+    #[clap(short, long)]
     config: Option<String>,
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     subcmd: Option<SubCommand>,
 }
 
 impl Opts {
     pub fn parse() -> Self {
-        StructOpt::from_args()
+        Parser::parse()
     }
 
     pub fn candidates(&self) -> impl Iterator<Item = &str> {
@@ -51,7 +48,7 @@ impl Opts {
     pub fn mode(&self) -> Mode {
         match self.subcmd {
             None => Mode::Norm(self.show_average),
-            Some(SubCommand::AddAlias(ref add)) => Mode::Add(&add),
+            Some(SubCommand::AddAlias(ref add)) => Mode::Add(add),
             Some(SubCommand::RemAlias(ref rem)) => Mode::Rem(&rem.alias),
             Some(SubCommand::List) => Mode::List,
         }
@@ -84,30 +81,30 @@ impl Opts {
     }
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Parser)]
 enum SubCommand {
-    #[structopt(name = "add")]
+    #[clap(name = "add")]
     AddAlias(AddAlias),
-    #[structopt(name = "rm")]
+    #[clap(name = "rm")]
     RemAlias(RemAlias),
-    #[structopt(name = "list")]
+    #[clap(name = "list")]
     List,
 }
 
 /// Store a set of expressions with an alias for easy reuse.
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Parser)]
 pub struct AddAlias {
     /// An easily-remembered name for a set of expressions
     pub alias: String,
     /// A comment or explanation of the stored forumlae
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub comment: Option<String>,
     /// The expressions to be evaluated when the alias is provided
     pub candidate_expressions: Vec<String>,
 }
 
 /// Remove a previously stored alias.
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Parser)]
 struct RemAlias {
     /// Alias to be removed
     alias: String,
