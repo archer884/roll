@@ -1,7 +1,6 @@
 use std::{fs::OpenOptions, io, path::Path};
 
 use chrono::Utc;
-use clap::crate_version;
 use hashbrown::HashMap;
 use io::BufWriter;
 
@@ -28,7 +27,7 @@ impl<'a> History<'a> {
     pub fn write(self) -> io::Result<()> {
         use std::io::Write;
 
-        static PROGRAM_VERSION: &str = crate_version!();
+        static PROGRAM_VERSION: &str = env!("CARGO_PKG_VERSION");
 
         let mut buf = String::new();
         let mut history = OpenOptions::new()

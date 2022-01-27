@@ -40,10 +40,20 @@ impl<'a> Display for ResultFormatter<'a> {
         // Print sum
         match self.result {
             result if result.is_critical() => {
-                write!(f, "{:>2}  ::  {}  ::  ", result.sum().bright_green(), self.text)?;
+                write!(
+                    f,
+                    "{:>2}  ::  {}  ::  ",
+                    result.sum().bright_green(),
+                    self.text
+                )?;
             }
             result if result.sum() == 1 => {
-                write!(f, "{:>2}  ::  {}  ::  ", result.sum().bright_red(), self.text)?;
+                write!(
+                    f,
+                    "{:>2}  ::  {}  ::  ",
+                    result.sum().bright_red(),
+                    self.text
+                )?;
             }
             result => {
                 write!(f, "{:>2}  ::  {}  ::  ", result.sum(), self.text)?;
@@ -60,10 +70,10 @@ impl<'a> Display for ResultFormatter<'a> {
                 }
                 Highlight::Low => {
                     write!(f, "{:>2}", value.bright_red())?;
-                },
+                }
                 Highlight::Normal => {
                     write!(f, "{:>2}", value)?;
-                },
+                }
             }
         }
 
@@ -81,17 +91,21 @@ impl<'a> Display for ResultFormatter<'a> {
 }
 
 #[inline(always)]
-fn write_with_highlight(f: &mut std::fmt::Formatter, value: i32, highlight: Highlight) -> std::fmt::Result {
+fn write_with_highlight(
+    f: &mut std::fmt::Formatter,
+    value: i32,
+    highlight: Highlight,
+) -> std::fmt::Result {
     match highlight {
         Highlight::High => {
             write!(f, ", {:>2}", value.bright_green())
         }
         Highlight::Low => {
             write!(f, ", {:>2}", value.bright_red())
-        },
+        }
         Highlight::Normal => {
             write!(f, ", {:>2}", value)
-        },
+        }
     }
 }
 

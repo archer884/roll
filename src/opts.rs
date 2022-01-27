@@ -4,14 +4,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{crate_authors, crate_description, crate_version, Parser};
+use clap::Parser;
 use directories::BaseDirs;
 use either::Either;
 
 use crate::Result;
 
 #[derive(Clone, Debug, Parser)]
-#[clap(author = crate_authors!(), about = crate_description!(), version = crate_version!())]
+#[clap(author, about, version)]
 pub struct Opts {
     /// Expressions of the form 2d6. Syntax extensions include r for reroll and
     /// ! for explode, among others
