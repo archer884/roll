@@ -12,10 +12,10 @@ use crate::Result;
 
 #[derive(Clone, Debug, Parser)]
 #[clap(author, about, version)]
-pub struct Opts {
+pub struct Args {
     /// Expressions of the form 2d6. Syntax extensions include r for reroll and
     /// ! for explode, among others
-    candidate_expressions: Vec<String>,
+    expressions: Vec<String>,
 
     /// Print the average value of a roll instead of its result.
     #[clap(short = 'a', long = "show-average")]
@@ -29,14 +29,14 @@ pub struct Opts {
     subcmd: Option<SubCommand>,
 }
 
-impl Opts {
+impl Args {
     pub fn parse() -> Self {
         Parser::parse()
     }
 
     pub fn candidates(&self) -> impl Iterator<Item = &str> {
         match self.subcmd {
-            None => Either::Left(self.candidate_expressions.iter().map(AsRef::as_ref)),
+            None => Either::Left(self.expressions.iter().map(AsRef::as_ref)),
             Some(SubCommand::AddAlias(AddAlias {
                 ref candidate_expressions,
                 ..

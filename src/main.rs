@@ -1,14 +1,14 @@
+mod args;
 mod history;
-mod opts;
 
 use std::{fmt::Display, fs, io, path::Path, process, slice};
 
+use args::{AddAlias, Args, Mode, PathConfig};
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
 use fs::File;
 use hashbrown::HashMap;
 use history::History;
-use opts::{AddAlias, Mode, Opts, PathConfig};
 use owo_colors::OwoColorize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -157,7 +157,7 @@ impl<T: Display> Display for Highlighted<T> {
 }
 
 fn main() -> Result<()> {
-    let opts = Opts::parse();
+    let opts = Args::parse();
     let paths = opts.path_config()?;
 
     match opts.mode() {
