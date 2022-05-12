@@ -1,7 +1,7 @@
-use std::{fmt::Display, fs, io, path::Path, process, slice};
-
 mod history;
 mod opts;
+
+use std::{fmt::Display, fs, io, path::Path, process, slice};
 
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
