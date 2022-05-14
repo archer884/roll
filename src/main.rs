@@ -1,13 +1,14 @@
 mod args;
+mod config;
 mod history;
 
 use std::{fmt::Display, fs, io, path::Path, process, slice};
 
 use args::{AddAlias, Args, Mode, PathConfig};
+use config::{Colors, Config, UpgradeConfig};
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
 use exprng::RandomRealizer;
 use fs::File;
-use hashbrown::HashMap;
 use history::History;
 use owo_colors::OwoColorize;
 use regex::Regex;
@@ -25,13 +26,18 @@ pub enum Error {
 }
 
 struct ResultFormatter<'a> {
+    colors: Colors,
     text: &'a str,
     result: &'a RealizedExpression,
 }
 
 impl<'a> ResultFormatter<'a> {
-    fn new(text: &'a str, result: &'a RealizedExpression) -> Self {
-        Self { text, result }
+    fn new(colors: Colors, text: &'a str, result: &'a RealizedExpression) -> Self {
+        Self {
+            colors,
+            text,
+            result,
+        }
     }
 }
 
@@ -40,20 +46,17 @@ impl<'a> Display for ResultFormatter<'a> {
         // Print sum
         match self.result {
             result if result.is_critical() => {
-                write!(
-                    f,
-                    "{:>2}  ::  {}  ::  ",
-                    result.sum().bright_green(),
-                    self.text
-                )?;
+                let text = self.text;
+                let result = result.sum();
+                let result = self.colors.high(&result);
+                write!(f, "{result:>2}  ::  {text}  ::  ")?;
             }
+
             result if result.sum() == 1 => {
-                write!(
-                    f,
-                    "{:>2}  ::  {}  ::  ",
-                    result.sum().bright_red(),
-                    self.text
-                )?;
+                let text = self.text;
+                let result = result.sum();
+                let result = self.colors.low(&result);
+                write!(f, "{result:>2}  ::  {text}  ::  ")?;
             }
             result => {
                 write!(f, "{:>2}  ::  {}  ::  ", result.sum(), self.text)?;
@@ -66,10 +69,12 @@ impl<'a> Display for ResultFormatter<'a> {
         if let Some((highlight, value)) = results.by_ref().next() {
             match highlight {
                 Highlight::High => {
-                    write!(f, "{:>2}", value.bright_green())?;
+                    let value = self.colors.high(&value);
+                    write!(f, "{value:>2}")?;
                 }
                 Highlight::Low => {
-                    write!(f, "{:>2}", value.bright_red())?;
+                    let value = self.colors.low(&value);
+                    write!(f, "{value:>2}")?;
                 }
                 Highlight::Normal => {
                     write!(f, "{:>2}", value)?;
@@ -78,7 +83,7 @@ impl<'a> Display for ResultFormatter<'a> {
         }
 
         for (highlight, value) in results {
-            write_with_highlight(f, value, highlight)?;
+            write_with_highlight(f, value, highlight, self.colors)?;
         }
 
         // Print static modifier
@@ -95,13 +100,16 @@ fn write_with_highlight(
     f: &mut std::fmt::Formatter,
     value: i32,
     highlight: Highlight,
+    colors: Colors,
 ) -> std::fmt::Result {
     match highlight {
         Highlight::High => {
-            write!(f, ", {:>2}", value.bright_green())
+            let value = colors.high(&value);
+            write!(f, ", {value:>2}")
         }
         Highlight::Low => {
-            write!(f, ", {:>2}", value.bright_red())
+            let value = colors.low(&value);
+            write!(f, ", {value:>2}")
         }
         Highlight::Normal => {
             write!(f, ", {:>2}", value)
@@ -110,7 +118,7 @@ fn write_with_highlight(
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct Formula {
+pub struct Formula {
     comment: Option<String>,
     expressions: Vec<StoredExpression>,
 }
@@ -126,7 +134,7 @@ impl<'a> IntoIterator for &'a Formula {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct StoredExpression {
+pub struct StoredExpression {
     text: String,
     expression: Expression,
 }
@@ -186,7 +194,7 @@ where
     }
 
     let parser = ExpressionParser::new();
-    let aliases = read_config(paths.config())?;
+    let config = read_config(paths.config())?;
     let pattern = Regex::new(r#"\*(\d+)$"#).unwrap();
     let counted_expressions = candidates
         .into_iter()
@@ -198,7 +206,7 @@ where
 
     println!();
     for (count, expression) in counted_expressions {
-        if let Some(formula) = aliases.get(expression) {
+        if let Some(formula) = config.get_alias(expression) {
             for _ in 0..count {
                 println!("# {}", expression);
                 if let Some(comment) = &formula.comment {
@@ -209,14 +217,17 @@ where
                     if show_average {
                         println!(
                             "  {}   {:>4}",
-                            ResultFormatter::new(&expression.text, &result),
+                            ResultFormatter::new(config.colors(), &expression.text, &result),
                             compare_to_average(
                                 result.sum(),
                                 expression.expression.average_result()
                             )
                         );
                     } else {
-                        println!("  {}", ResultFormatter::new(&expression.text, &result));
+                        println!(
+                            "  {}",
+                            ResultFormatter::new(config.colors(), &expression.text, &result)
+                        );
                     }
                 }
             }
@@ -228,11 +239,14 @@ where
                         if show_average {
                             println!(
                                 "  {}   {:>4}",
-                                ResultFormatter::new(expression, &result),
+                                ResultFormatter::new(config.colors(), expression, &result),
                                 compare_to_average(result.sum(), compiled.average_result())
                             );
                         } else {
-                            println!("  {}", ResultFormatter::new(expression, &result));
+                            println!(
+                                "  {}",
+                                ResultFormatter::new(config.colors(), expression, &result)
+                            );
                         }
                     }
                 }
@@ -263,7 +277,7 @@ fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
         .collect();
 
     let mut aliases = read_config(config)?;
-    aliases.insert(
+    aliases.set_alias(
         add.alias.clone(),
         Formula {
             comment: add.comment.clone(),
@@ -282,13 +296,13 @@ fn rem_alias(alias: &str, config: &Path) -> Result<()> {
 }
 
 fn list(config: &Path) -> Result<()> {
-    let aliases = read_config(config)?;
-    for (alias, formula) in aliases {
+    let config = read_config(config)?;
+    for (alias, formula) in config.aliases() {
         println!("# {}", alias);
         if let Some(comment) = &formula.comment {
             println!("# {}", comment);
         }
-        for expression in &formula {
+        for expression in formula {
             println!("  {}", expression.text);
         }
     }
@@ -303,16 +317,25 @@ fn compare_to_average(realized: i32, average: f64) -> Highlighted<String> {
     }
 }
 
-fn read_config(path: &Path) -> io::Result<HashMap<String, Formula>> {
+fn read_config(path: &Path) -> io::Result<Config> {
     if !path.exists() {
         return Ok(Default::default());
     }
 
-    let map = serde_json::from_reader(File::open(path)?)?;
-    Ok(map)
+    // I have been told that this is actually more performant serde_json::from_reader()
+    let text = fs::read_to_string(path)?;
+    let config: UpgradeConfig = serde_json::from_str(&text)?;
+
+    if config.is_legacy() {
+        let config: Config = config.into();
+        write_config(path, &config)?;
+        Ok(config)
+    } else {
+        Ok(config.into())
+    }
 }
 
-fn write_config(path: &Path, aliases: &HashMap<String, Formula>) -> io::Result<()> {
-    serde_json::to_writer_pretty(File::create(path)?, aliases)?;
+fn write_config(path: &Path, config: &Config) -> io::Result<()> {
+    serde_json::to_writer_pretty(File::create(path)?, config)?;
     Ok(())
 }
