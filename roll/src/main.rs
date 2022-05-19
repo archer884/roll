@@ -1,16 +1,15 @@
 mod args;
 mod history;
 
-use std::{fmt::Display, fs, io, path::Path, process, slice};
+use std::{fmt::Display, fs, io, iter, path::Path, process, slice};
 
 use args::{AddAlias, Args, Mode, PathConfig};
-use expr::{Expression, ExpressionParser, Highlight, RealizedExpression, Realizer};
-use exprng::RandomRealizer;
+use expr::{Expression, ExpressionParser, Highlight, RealizedExpression};
+use exprng::{Realizer, RandomRealizer};
 use fs::File;
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use history::History;
 use owo_colors::OwoColorize;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
 
@@ -140,101 +139,95 @@ impl StoredExpression {
     }
 }
 
-enum Highlighted<T> {
-    Green(T),
-    Red(T),
-    Standard(T),
-}
-
-impl<T: Display> Display for Highlighted<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Highlighted::Green(item) => write!(f, "{}", item.bright_green()),
-            Highlighted::Red(item) => write!(f, "{}", item.bright_red()),
-            Highlighted::Standard(item) => write!(f, "{}", item),
-        }
-    }
-}
-
 fn main() -> Result<()> {
     let opts = Args::parse();
     let paths = opts.path_config()?;
 
     match opts.mode() {
-        Mode::Norm(show_average) => execute_expressions(&paths, opts.candidates(), show_average),
+        Mode::Norm => execute_expressions(&paths, opts.candidates()),
+        Mode::Average => print_averages(&paths, opts.candidates()),
         Mode::Add(alias) => add_alias(alias, paths.config()),
         Mode::Rem(alias) => rem_alias(alias, paths.config()),
         Mode::List => list(paths.config()),
     }
 }
 
-fn execute_expressions<'a, I>(paths: &PathConfig, candidates: I, show_average: bool) -> Result<()>
+/// Expands "counted" expressions
+///
+/// An expression of the form 2d6*2 expands *two instances of* the expression 2d6. (Note that on
+/// Linux systems it is necessary to either quote '2d6*2' or use 2d6x2 instead.) This function
+/// transforms a counted expression into one or more expressions of the same value.
+fn expand_expressions<'a, I>(candidates: I) -> impl Iterator<Item = &'a str>
 where
     I: IntoIterator<Item = &'a str>,
 {
-    /// Extracts a count suffix from the string, returning the suffix parsed as
-    /// an integer and the non-suffixed string.
-    fn count_expression<'a>(expr: &'a str, pattern: &Regex) -> (usize, &'a str) {
-        match pattern.captures(expr) {
-            Some(suffix) => {
-                let expr = &expr[..suffix.get(0).unwrap().start()];
-                let count = suffix.get(1).unwrap().as_str().parse().unwrap_or(1);
-                (count, expr)
+    candidates
+        .into_iter()
+        .map(
+            |candidate| match candidate.split_once(|u: char| u == '*' || u == 'x' || u == 'X') {
+                Some((expr, count)) => (count.parse().unwrap_or(1usize), expr),
+                None => (1, candidate),
+            },
+        )
+        .flat_map(|(count, expr)| iter::repeat(expr).take(count))
+}
+
+fn print_averages<'a, I>(path: &PathConfig, candidates: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let mut unique_filter = HashSet::new();
+    let aliases = read_config(path.config())?;
+
+    println!();
+
+    for expression in expand_expressions(candidates) {
+        if let Some(formula) = aliases.get(expression) {
+            for expression in formula.expressions.iter().map(|x| &x.expression) {
+                if !unique_filter.contains(expression) {
+                    let average = expression.average_result();
+                    println!("{average:.02}");
+                    unique_filter.insert(expression.clone());
+                }
             }
-            None => (1, expr),
+        } else {
+
         }
     }
 
+    println!();
+
+    Ok(())
+}
+
+fn execute_expressions<'a, I>(paths: &PathConfig, candidates: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a str>,
+{
     let parser = ExpressionParser::new();
     let aliases = read_config(paths.config())?;
-    let pattern = Regex::new(r#"\*(\d+)$"#).unwrap();
-    let counted_expressions = candidates
-        .into_iter()
-        .map(|expr| count_expression(expr, &pattern));
 
     let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
     let mut realizer = realizer.with_logging();
     let mut history = History::new(paths.history());
 
     println!();
-    for (count, expression) in counted_expressions {
+
+    for expression in expand_expressions(candidates) {
         if let Some(formula) = aliases.get(expression) {
-            for _ in 0..count {
-                println!("# {}", expression);
-                if let Some(comment) = &formula.comment {
-                    println!("# {}", comment);
-                }
-                for expression in &formula.expressions {
-                    let result = realizer.realize(&expression.expression);
-                    if show_average {
-                        println!(
-                            "  {}   {:>4}",
-                            ResultFormatter::new(&expression.text, &result),
-                            compare_to_average(
-                                result.sum(),
-                                expression.expression.average_result()
-                            )
-                        );
-                    } else {
-                        println!("  {}", ResultFormatter::new(&expression.text, &result));
-                    }
-                }
+            println!("# {}", expression);
+            if let Some(comment) = &formula.comment {
+                println!("# {}", comment);
+            }
+            for expression in &formula.expressions {
+                let result = realizer.realize(&expression.expression);
+                println!("  {}", ResultFormatter::new(&expression.text, &result));
             }
         } else {
             match parser.parse(expression.as_ref()) {
                 Ok(compiled) => {
-                    for _ in 0..count {
-                        let result = realizer.realize(&compiled);
-                        if show_average {
-                            println!(
-                                "  {}   {:>4}",
-                                ResultFormatter::new(expression, &result),
-                                compare_to_average(result.sum(), compiled.average_result())
-                            );
-                        } else {
-                            println!("  {}", ResultFormatter::new(expression, &result));
-                        }
-                    }
+                    let result = realizer.realize(&compiled);
+                    println!("  {}", ResultFormatter::new(expression, &result));
                 }
 
                 Err(e) => {
@@ -293,14 +286,6 @@ fn list(config: &Path) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn compare_to_average(realized: i32, average: f64) -> Highlighted<String> {
-    match realized as f64 / average * 100.0 {
-        n if n >= 150.0 => Highlighted::Green(format!("{:.0}%", n)),
-        n if n <= 50.0 => Highlighted::Red(format!("{:.0}%", n)),
-        n => Highlighted::Standard(format!("{:.0}%", n)),
-    }
 }
 
 fn read_config(path: &Path) -> io::Result<HashMap<String, Formula>> {

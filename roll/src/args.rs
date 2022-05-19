@@ -13,18 +13,28 @@ use crate::Result;
 #[derive(Clone, Debug, Parser)]
 #[clap(author, about, version)]
 pub struct Args {
-    /// Expressions of the form 2d6. Syntax extensions include r for reroll and
-    /// ! for explode, among others
+    /// roll expressions
+    ///
+    /// Expressions should generally be of the form 2d6. Shorthand like 20 is valid for any
+    /// expression 1d20, etc. Syntax extensions include:
+    /// - 2d6r / 2d6r2: reroll 1s or 2s
+    /// - 2d6!: explode (roll again and add to total) on max values
+    /// - 2d6+2: add 2 to total
     expressions: Vec<String>,
 
-    /// Print the average value of a roll instead of its result.
+    /// print average value of expressions
+    ///
+    /// In this mode, roll does not actually roll but prints the calculated average value of an
+    /// expression.
     #[clap(short = 'a', long = "show-average")]
     show_average: bool,
 
-    /// Store and use configurations for alternative characters by passing the
-    /// character's name here, e.g. "bob"
+    /// modify configuration
+    ///
+    /// Config for default and alternate profiles. (Pass profile name to modify named profile.)
     #[clap(short, long)]
     config: Option<String>,
+
     #[clap(subcommand)]
     subcmd: Option<SubCommand>,
 }
@@ -47,7 +57,13 @@ impl Args {
 
     pub fn mode(&self) -> Mode {
         match self.subcmd {
-            None => Mode::Norm(self.show_average),
+            None => {
+                if self.show_average {
+                    Mode::Average
+                } else {
+                    Mode::Norm
+                }
+            }
             Some(SubCommand::AddAlias(ref add)) => Mode::Add(add),
             Some(SubCommand::RemAlias(ref rem)) => Mode::Rem(&rem.alias),
             Some(SubCommand::List) => Mode::List,
@@ -112,8 +128,8 @@ struct RemAlias {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
-    /// Normal mode. If flag is set, print averages instead of rolling dice.
-    Norm(bool),
+    Norm,
+    Average,
     Add(&'a AddAlias),
     Rem(&'a str),
     List,
