@@ -5,7 +5,7 @@ use std::{fmt::Display, fs, io, iter, path::Path, process, slice};
 
 use args::{AddAlias, Args, Mode, PathConfig};
 use expr::{Expression, ExpressionParser, Highlight, RealizedExpression};
-use exprng::{Realizer, RandomRealizer};
+use exprng::{RandomRealizer, Realizer};
 use fs::File;
 use hashbrown::{HashMap, HashSet};
 use history::History;
@@ -191,7 +191,6 @@ where
                 }
             }
         } else {
-
         }
     }
 

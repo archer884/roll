@@ -1,19 +1,22 @@
+mod error;
+mod token;
+
 use std::cmp;
 
-mod error;
-
 pub use error::Error;
+
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use token::{ExplodeTokenExtractor, RerollTokenExtractor, TokenExtractor};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct ExpressionParser {
     bounded_expression: Regex,
     modifier_expression: Regex,
-    reroll_expression: Regex,
-    explode_expression: Regex,
+    reroll: RerollTokenExtractor,
+    explode: ExplodeTokenExtractor,
 }
 
 impl ExpressionParser {
@@ -21,8 +24,8 @@ impl ExpressionParser {
         ExpressionParser {
             bounded_expression: Regex::new(r#"^([Aa]|[Ss])?(\d+[Dd])?[Dd]?(\d+)"#).unwrap(),
             modifier_expression: Regex::new(r#"([+-]\d+)"#).unwrap(),
-            reroll_expression: Regex::new(r#"r(\d+)?"#).unwrap(),
-            explode_expression: Regex::new(r#"!(\d+)?"#).unwrap(),
+            reroll: Default::default(),
+            explode: Default::default(),
         }
     }
 
@@ -65,9 +68,9 @@ impl ExpressionParser {
                 .map_err(|e| Error::BadInteger(text.as_str().into(), e))?;
         }
 
-        expression.reroll = parse_threshold_token(expr, &self.reroll_expression, 1)?.map(Reroll);
+        expression.reroll = parse_threshold_token(&self.reroll, expr, 1)?.map(Reroll);
         expression.explode =
-            parse_threshold_token(expr, &self.explode_expression, expression.max)?.map(Explode);
+            parse_threshold_token(&self.explode, expr, expression.max)?.map(Explode);
 
         Ok(expression)
     }
@@ -79,7 +82,7 @@ impl Default for ExpressionParser {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Deserialize, Serialize)]
 pub struct Expression {
     count: i32,
     max: i32,
@@ -221,16 +224,25 @@ pub enum Highlight {
     Normal,
 }
 
-fn parse_threshold_token(expr: &str, pattern: &Regex, default: i32) -> Result<Option<i32>> {
-    match pattern.captures(expr) {
-        Some(captures) => match captures.get(1).map(|x| x.as_str()) {
-            Some(text) => Ok(Some(
-                text.parse()
-                    .map_err(|e| Error::BadInteger(text.into(), e))?,
-            )),
+fn parse_threshold_token(
+    extractor: &impl TokenExtractor,
+    expr: &str,
+    default: i32,
+) -> Result<Option<i32>> {
+    let (is_present, value) = extractor.extract(expr);
+
+    if is_present {
+        match value {
+            Some(value) => {
+                let parsed = value
+                    .parse()
+                    .map_err(|e| Error::BadInteger(expr.into(), e))?;
+                Ok(Some(parsed))
+            }
             None => Ok(Some(default)),
-        },
-        None => Ok(None),
+        }
+    } else {
+        Ok(None)
     }
 }
 
@@ -427,7 +439,7 @@ mod tests {
     #[test]
     fn realize_disadvantage_reroll_and_explode() {
         let mut realizer = MockRealizer::new(vec![1, 5, 3, 2]);
-        let expression = parse("s2d6r!5");
+        let expression = parse("s2d6re5");
         assert_eq!(5, realizer.realize(&expression).sum());
     }
 

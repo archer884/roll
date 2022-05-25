@@ -1,6 +1,6 @@
 [package]
 name = "roll"
-version = "0.3.16"
+version = "0.3.17"
 authors = ["J/A <archer884@gmail.com>"]
 edition = "2021"
 description = """
@@ -23,7 +23,7 @@ exprng = { path = '../exprng' }
 hashbrown = { version = "0.12.1", features = ["serde"] }
 owo-colors = "3.4.0"
 rand = "0.8.5"
-regex = "1.5.5"
+regex = "1.5.6"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 squirrel-rng = "0.2.1"
