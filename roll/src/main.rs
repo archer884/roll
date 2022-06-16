@@ -1,15 +1,15 @@
 mod args;
 mod history;
 
-use std::{fmt::Display, fs, io, iter, path::Path, process, slice};
+use std::{borrow::Cow, fs, io, iter, path::Path, process, slice};
 
 use args::{AddAlias, Args, Mode, PathConfig};
-use expr::{Expression, ExpressionParser, Highlight, RealizedExpression};
+use comfy_table::Table;
+use expr::{Expression, ExpressionParser};
 use exprng::{RandomRealizer, Realizer};
 use fs::File;
 use hashbrown::{HashMap, HashSet};
 use history::History;
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
 
@@ -21,91 +21,6 @@ pub enum Error {
     Expr(#[from] expr::Error),
     #[error(transparent)]
     IO(#[from] std::io::Error),
-}
-
-struct ResultFormatter<'a> {
-    text: &'a str,
-    result: &'a RealizedExpression,
-}
-
-impl<'a> ResultFormatter<'a> {
-    fn new(text: &'a str, result: &'a RealizedExpression) -> Self {
-        Self { text, result }
-    }
-}
-
-impl<'a> Display for ResultFormatter<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Print sum
-        match self.result {
-            result if result.is_critical() => {
-                write!(
-                    f,
-                    "{:>2}  ::  {}  ::  ",
-                    result.sum().bright_green(),
-                    self.text
-                )?;
-            }
-            result if result.sum() == 1 => {
-                write!(
-                    f,
-                    "{:>2}  ::  {}  ::  ",
-                    result.sum().bright_red(),
-                    self.text
-                )?;
-            }
-            result => {
-                write!(f, "{:>2}  ::  {}  ::  ", result.sum(), self.text)?;
-            }
-        }
-
-        // Print rolled values with highlighting
-        let mut results = self.result.results();
-
-        if let Some((highlight, value)) = results.by_ref().next() {
-            match highlight {
-                Highlight::High => {
-                    write!(f, "{:>2}", value.bright_green())?;
-                }
-                Highlight::Low => {
-                    write!(f, "{:>2}", value.bright_red())?;
-                }
-                Highlight::Normal => {
-                    write!(f, "{:>2}", value)?;
-                }
-            }
-        }
-
-        for (highlight, value) in results {
-            write_with_highlight(f, value, highlight)?;
-        }
-
-        // Print static modifier
-        match self.result.modifier() {
-            0 => Ok(()),
-            x if x.is_negative() => write!(f, " (-{})", x.abs()),
-            x => write!(f, "   +{}", x),
-        }
-    }
-}
-
-#[inline(always)]
-fn write_with_highlight(
-    f: &mut std::fmt::Formatter,
-    value: i32,
-    highlight: Highlight,
-) -> std::fmt::Result {
-    match highlight {
-        Highlight::High => {
-            write!(f, ", {:>2}", value.bright_green())
-        }
-        Highlight::Low => {
-            write!(f, ", {:>2}", value.bright_red())
-        }
-        Highlight::Normal => {
-            write!(f, ", {:>2}", value)
-        }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -209,24 +124,28 @@ where
     let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
     let mut realizer = realizer.with_logging();
     let mut history = History::new(paths.history());
-
-    println!();
+    let mut table = configure_table();
 
     for expression in expand_expressions(candidates) {
         if let Some(formula) = aliases.get(expression) {
-            println!("# {}", expression);
             if let Some(comment) = &formula.comment {
-                println!("# {}", comment);
+                table.add_row(&[expression, comment]);
+            } else {
+                table.add_row(&[expression, ""]);
             }
+
             for expression in &formula.expressions {
                 let result = realizer.realize(&expression.expression);
-                println!("  {}", ResultFormatter::new(&expression.text, &result));
+                table.add_row(&[
+                    Cow::from(result.sum().to_string()),
+                    Cow::from(&expression.text),
+                ]);
             }
         } else {
             match parser.parse(expression.as_ref()) {
                 Ok(compiled) => {
                     let result = realizer.realize(&compiled);
-                    println!("  {}", ResultFormatter::new(expression, &result));
+                    table.add_row(&[Cow::from(result.sum().to_string()), Cow::from(expression)]);
                 }
 
                 Err(e) => {
@@ -237,9 +156,20 @@ where
         }
     }
 
-    println!();
+    table
+        .column_mut(0)
+        .expect("table has two columns")
+        .set_cell_alignment(comfy_table::CellAlignment::Right);
+
+    println!("{table}");
     history.append_log(realizer.finalize());
     Ok(history.write()?)
+}
+
+fn configure_table() -> Table {
+    let mut table = Table::new();
+    table.load_preset(comfy_table::presets::NOTHING);
+    table
 }
 
 fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
