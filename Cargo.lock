@@ -168,7 +168,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "expr"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "regex",
  "serde",
@@ -178,7 +178,7 @@ dependencies = [
 
 [[package]]
 name = "exprng"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "expr",
  "hashbrown 0.12.1",
@@ -458,7 +458,7 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 
 [[package]]
 name = "roll"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "chrono",
  "clap",

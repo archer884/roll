@@ -67,7 +67,7 @@ fn run(args: &Args) -> Result<()> {
     let paths = args.path_config()?;
 
     match args.mode() {
-        Mode::Norm => execute_expressions(&paths, args.candidates()),
+        Mode::Norm => execute_expressions(&paths, args),
         Mode::Average => print_averages(&paths, args.candidates()),
         Mode::Add(alias) => add_alias(alias, paths.config()),
         Mode::Rem(alias) => rem_alias(alias, paths.config()),
@@ -125,10 +125,7 @@ where
     Ok(())
 }
 
-fn execute_expressions<'a, I>(paths: &PathConfig, candidates: I) -> Result<()>
-where
-    I: IntoIterator<Item = &'a str>,
-{
+fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
     let parser = ExpressionParser::new();
     let aliases = read_config(paths.config())?;
 
@@ -137,13 +134,12 @@ where
     let mut history = History::new(paths.history());
     let mut table = configure_table();
 
-    for expression in expand_expressions(candidates) {
+    // FIXME: Add verbose mode that prints expressions, but don't bother
+    // printing expressions under normal circumstances.
+
+    for expression in expand_expressions(args.candidates()) {
         if let Some(formula) = aliases.get(expression) {
-            if let Some(comment) = &formula.comment {
-                table.add_row(&[expression, comment]);
-            } else {
-                table.add_row(&[expression, ""]);
-            }
+            table.add_row([expression, formula.comment.as_deref().unwrap_or("")]);
 
             for expression in &formula.expressions {
                 let result = realizer.realize(&expression.expression);
@@ -155,7 +151,12 @@ where
         } else {
             let compiled = parser.parse(expression)?;
             let result = realizer.realize(&compiled);
-            table.add_row(&[Cow::from(result.sum().to_string()), Cow::from(expression)]);
+
+            if args.verbose {
+                table.add_row(&[Cow::from(result.sum().to_string()), Cow::from(expression)]);
+            } else {
+                table.add_row(&[Cow::from(result.sum().to_string()), Cow::from("")]);
+            }
         }
     }
 

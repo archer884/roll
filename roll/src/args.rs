@@ -37,6 +37,9 @@ pub struct Args {
 
     #[clap(subcommand)]
     subcmd: Option<SubCommand>,
+
+    #[clap(short, long)]
+    pub verbose: bool,
 }
 
 impl Args {
