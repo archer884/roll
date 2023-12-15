@@ -1,5 +1,3 @@
-pub use expr::Realizer;
-
 use hashbrown::HashMap;
 use rand::{
     distributions::{DistIter, Uniform},
@@ -7,6 +5,8 @@ use rand::{
     Rng,
 };
 use smallvec::SmallVec;
+
+pub use crate::expression::Realizer;
 
 pub trait InitializeBoundedRng: Rng + Sized {
     fn initialize(max: i32) -> BoundedRng<Self>;

@@ -1,16 +1,16 @@
-mod error;
-mod token;
-
 use std::cmp;
 
-pub use error::Error;
-
+use owo_colors::OwoColorize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use token::{ExplodeTokenExtractor, RerollTokenExtractor, TokenExtractor};
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+use crate::{
+    error::ExpressionError,
+    token::{ExplodeTokenExtractor, RerollTokenExtractor, TokenExtractor},
+};
+
+pub type Result<T, E = ExpressionError> = std::result::Result<T, E>;
 
 pub struct ExpressionParser {
     bounded_expression: Regex,
@@ -36,8 +36,8 @@ impl ExpressionParser {
             Some(captures) => {
                 if let Some(group) = captures.get(1) {
                     expression.advantage = match group.as_str() {
-                        "A" | "a" => Advantage::Advantage,
-                        "S" | "s" => Advantage::Disadvantage,
+                        "A" | "a" => StrategyModifier::Advantage,
+                        "S" | "s" => StrategyModifier::Disadvantage,
                         _ => unreachable!("Regex can't match this"),
                     };
                 }
@@ -47,25 +47,27 @@ impl ExpressionParser {
                     let subexpr = &subexpr[..subexpr.len() - 1];
                     expression.count = subexpr
                         .parse()
-                        .map_err(|e| Error::BadInteger(subexpr.into(), e))?;
+                        .map_err(|e| ExpressionError::BadInteger(subexpr.into(), e))?;
                 } else {
                     expression.count = 1;
                 }
 
                 let max = captures
                     .get(3)
-                    .ok_or_else(|| Error::BadExpression(expr.into()))?
+                    .ok_or_else(|| ExpressionError::BadExpression(expr.into()))?
                     .as_str();
-                expression.max = max.parse().map_err(|e| Error::BadInteger(max.into(), e))?;
+                expression.max = max
+                    .parse()
+                    .map_err(|e| ExpressionError::BadInteger(max.into(), e))?;
             }
-            None => return Err(Error::BadExpression(expr.into())),
+            None => return Err(ExpressionError::BadExpression(expr.into())),
         }
 
         if let Some(text) = self.modifier_expression.find(expr) {
             expression.modifier = text
                 .as_str()
                 .parse()
-                .map_err(|e| Error::BadInteger(text.as_str().into(), e))?;
+                .map_err(|e| ExpressionError::BadInteger(text.as_str().into(), e))?;
         }
 
         expression.reroll = parse_threshold_token(&self.reroll, expr, 1)?.map(Reroll);
@@ -87,7 +89,7 @@ pub struct Expression {
     count: i32,
     max: i32,
     modifier: i32,
-    advantage: Advantage,
+    advantage: StrategyModifier,
     reroll: Option<Reroll>,
     explode: Option<Explode>,
 }
@@ -110,17 +112,12 @@ impl Expression {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Advantage {
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum StrategyModifier {
     Advantage,
     Disadvantage,
+    #[default]
     Normal,
-}
-
-impl Default for Advantage {
-    fn default() -> Self {
-        Advantage::Normal
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -150,13 +147,13 @@ pub trait Realizer {
 
         for _ in 0..expression.count {
             let mut value = match advantage.take().unwrap_or_default() {
-                Advantage::Advantage => {
+                StrategyModifier::Advantage => {
                     cmp::max(self.next(expression.max), self.next(expression.max))
                 }
-                Advantage::Disadvantage => {
+                StrategyModifier::Disadvantage => {
                     cmp::min(self.next(expression.max), self.next(expression.max))
                 }
-                Advantage::Normal => self.next(expression.max),
+                StrategyModifier::Normal => self.next(expression.max),
             };
 
             loop {
@@ -217,6 +214,37 @@ impl RealizedExpression {
     }
 }
 
+impl From<RealizedExpression> for comfy_table::Row {
+    fn from(value: RealizedExpression) -> Self {
+        use std::fmt::Write;
+
+        let mut row = comfy_table::Row::new();
+        row.add_cell(value.sum().into());
+
+        let mut results = value.results();
+        let mut w = String::new();
+
+        if let Some((highlight, value)) = results.next() {
+            match highlight {
+                Highlight::High => write!(w, "   = {}", value.bright_green()),
+                Highlight::Low => write!(w, "   = {}", value.bright_red()),
+                Highlight::Normal => write!(w, "   = {}", value),
+            }.unwrap();
+        }
+        
+        for (highlight, value) in results {
+            match highlight {
+                Highlight::High => write!(w, " + {}", value.bright_green()),
+                Highlight::Low => write!(w, " + {}", value.bright_red()),
+                Highlight::Normal => write!(w, " + {}", value),
+            }.unwrap();
+        }
+
+        row.add_cell(w.into());
+        row
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Highlight {
     High,
@@ -236,7 +264,7 @@ fn parse_threshold_token(
             Some(value) => {
                 let parsed = value
                     .parse()
-                    .map_err(|e| Error::BadInteger(expr.into(), e))?;
+                    .map_err(|e| ExpressionError::BadInteger(expr.into(), e))?;
                 Ok(Some(parsed))
             }
             None => Ok(Some(default)),
@@ -248,7 +276,7 @@ fn parse_threshold_token(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Advantage, Explode, Expression, ExpressionParser, Realizer, Reroll};
+    use crate::expression::{StrategyModifier, Explode, Expression, ExpressionParser, Realizer, Reroll};
 
     #[test]
     fn bounded_expression() {
@@ -356,7 +384,7 @@ mod tests {
         let expected = Expression {
             count: 1,
             max: 20,
-            advantage: Advantage::Advantage,
+            advantage: StrategyModifier::Advantage,
             ..Default::default()
         };
 
@@ -373,7 +401,7 @@ mod tests {
         let expected = Expression {
             count: 1,
             max: 20,
-            advantage: Advantage::Disadvantage,
+            advantage: StrategyModifier::Disadvantage,
             ..Default::default()
         };
 

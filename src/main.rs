@@ -1,27 +1,24 @@
 mod args;
+mod error;
+mod expression;
 mod history;
+mod realize;
+mod token;
 
 use std::{borrow::Cow, fs, io, iter, path::Path, slice};
 
 use args::{AddAlias, Args, Mode, PathConfig};
 use comfy_table::Table;
-use expr::{Expression, ExpressionParser};
-use exprng::{RandomRealizer, Realizer};
+use either::Either;
+use expression::{Expression, ExpressionParser};
+use realize::{RandomRealizer, Realizer};
 use fs::File;
 use hashbrown::{HashMap, HashSet};
 use history::History;
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
 
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Unable to parse expression: {0}")]
-    Expr(#[from] expr::Error),
-    #[error(transparent)]
-    IO(#[from] std::io::Error),
-}
+type Result<T, E = error::Error> = std::result::Result<T, E>;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Formula {
@@ -153,9 +150,9 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
             let result = realizer.realize(&compiled);
 
             if args.verbose {
-                table.add_row(&[Cow::from(result.sum().to_string()), Cow::from(expression)]);
+                table.add_row([Either::Left(result.sum()), Either::Right(expression)]);
             } else {
-                table.add_row(&[Cow::from(result.sum().to_string()), Cow::from("")]);
+                table.add_row(result);
             }
         }
     }
@@ -178,7 +175,7 @@ fn configure_table() -> Table {
 
 fn add_alias(add: &AddAlias, config: &Path) -> Result<()> {
     let parser = ExpressionParser::new();
-    let expressions: expr::Result<Vec<StoredExpression>> = add
+    let expressions: expression::Result<Vec<StoredExpression>> = add
         .candidate_expressions
         .iter()
         .map(|text| {
