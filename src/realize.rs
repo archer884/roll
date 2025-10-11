@@ -1,7 +1,6 @@
 use hashbrown::HashMap;
 use rand::{
-    distributions::{DistIter, Uniform},
-    prelude::Distribution,
+    distr::{Distribution, Uniform},
     Rng,
 };
 use smallvec::SmallVec;
@@ -14,7 +13,11 @@ pub trait InitializeBoundedRng: Rng + Sized {
 
 impl<R: Default + Rng> InitializeBoundedRng for R {
     fn initialize(max: i32) -> BoundedRng<Self> {
-        BoundedRng(Uniform::from(1..=max).sample_iter(R::default()))
+        BoundedRng(
+            Uniform::new_inclusive(1, max)
+                .unwrap()
+                .sample_iter(R::default()),
+        )
     }
 }
 
@@ -30,7 +33,7 @@ impl<I: InitializeBoundedRng> RandomRealizer<I> {
         }
     }
 
-    pub fn with_logging(&mut self) -> LogWrapper<Self> {
+    pub fn with_logging(&'_ mut self) -> LogWrapper<'_, Self> {
         LogWrapper {
             realizer: self,
             log: HashMap::new(),
@@ -67,7 +70,7 @@ impl<'r, R: Realizer> Realizer for LogWrapper<'r, R> {
 }
 
 #[derive(Debug)]
-pub struct BoundedRng<R>(DistIter<Uniform<i32>, R, i32>);
+pub struct BoundedRng<R>(rand::distr::Iter<Uniform<i32>, R, i32>);
 
 impl<R: Rng> BoundedRng<R> {
     fn next(&mut self) -> i32 {

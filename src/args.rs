@@ -58,7 +58,7 @@ impl Args {
         }
     }
 
-    pub fn mode(&self) -> Mode {
+    pub fn mode(&'_ self) -> Mode<'_> {
         match self.subcmd {
             None => {
                 if self.show_average {

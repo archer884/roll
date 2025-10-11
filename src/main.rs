@@ -11,10 +11,10 @@ use args::{AddAlias, Args, Mode, PathConfig};
 use comfy_table::Table;
 use either::Either;
 use expression::{Expression, ExpressionParser};
-use realize::{RandomRealizer, Realizer};
 use fs::File;
 use hashbrown::{HashMap, HashSet};
 use history::History;
+use realize::{RandomRealizer, Realizer};
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
 
@@ -83,13 +83,11 @@ where
 {
     candidates
         .into_iter()
-        .map(
-            |candidate| match candidate.split_once(|u: char| u == '*' || u == 'x' || u == 'X') {
-                Some((expr, count)) => (count.parse().unwrap_or(1usize), expr),
-                None => (1, candidate),
-            },
-        )
-        .flat_map(|(count, expr)| iter::repeat(expr).take(count))
+        .map(|candidate| match candidate.split_once(['*', 'x', 'X']) {
+            Some((expr, count)) => (count.parse().unwrap_or(1usize), expr),
+            None => (1, candidate),
+        })
+        .flat_map(|(count, expr)| iter::repeat_n(expr, count))
 }
 
 fn print_averages<'a, I>(path: &PathConfig, candidates: I) -> Result<()>
