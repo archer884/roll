@@ -132,9 +132,6 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
     let mut history = History::new(paths.history());
     let mut table = configure_table();
 
-    // FIXME: Add verbose mode that prints expressions, but don't bother
-    // printing expressions under normal circumstances.
-
     let expressions = expand_expressions(args.candidates()).default_if_empty("1d20");
     for expression in expressions {
         if let Some(formula) = aliases.get(expression) {
