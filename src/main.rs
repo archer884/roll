@@ -86,6 +86,7 @@ where
 {
     candidates
         .into_iter()
+        .default_if_empty("1d20")
         .map(|candidate| match candidate.split_once(['*', 'x', 'X']) {
             Some((expr, count)) => (count.parse().unwrap_or(1usize), expr),
             None => (1, candidate),
@@ -132,7 +133,7 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
     let mut history = History::new(paths.history());
     let mut table = configure_table();
 
-    let expressions = expand_expressions(args.candidates()).default_if_empty("1d20");
+    let expressions = expand_expressions(args.candidates());
     for expression in expressions {
         if let Some(formula) = aliases.get(expression) {
             table.add_row([expression, formula.comment.as_deref().unwrap_or("")]);
