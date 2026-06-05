@@ -107,8 +107,63 @@ impl Expression {
             .unwrap_or_default()
     }
 
+    /// Expected value of a single die with reroll and explode, starting from a plain roll.
+    ///
+    /// Values ≤ r are rerolled; terminal values ≥ t explode (add value and roll again).
+    /// Derivation: E = (r+1+M)(M-r) / (2(t-1-r))
+    fn expected_plain(m: i32, r: i32, t: i32) -> f64 {
+        let denom = 2 * (t - 1 - r);
+        if denom > 0 {
+            (r + 1 + m) as f64 * (m - r) as f64 / denom as f64
+        } else {
+            // No explode (t > m): uniform on [r+1, m]
+            (r + 1 + m) as f64 / 2.0
+        }
+    }
+
+    /// Expected value of the first die, which may have advantage or disadvantage.
+    ///
+    /// The initial roll uses the strategy (max/min of two rolls), then reroll and explode
+    /// apply normally. Rerolls and explode continuations are always single rolls.
+    fn expected_first_die(m: i32, r: i32, t: i32, strategy: StrategyModifier, e_plain: f64) -> f64 {
+        match strategy {
+            StrategyModifier::Normal => e_plain,
+            _ => {
+                let m_sq = (m * m) as f64;
+                let mut e = 0.0;
+                for k in 1..=m {
+                    let weight = match strategy {
+                        StrategyModifier::Advantage => (2 * k - 1) as f64,
+                        StrategyModifier::Disadvantage => (2 * (m - k) + 1) as f64,
+                        StrategyModifier::Normal => unreachable!(),
+                    };
+                    let contribution = if k <= r {
+                        e_plain
+                    } else if k >= t {
+                        k as f64 + e_plain
+                    } else {
+                        k as f64
+                    };
+                    e += weight * contribution;
+                }
+                e / m_sq
+            }
+        }
+    }
+
     pub fn average_result(&self) -> f64 {
-        ((1 + self.max) * self.count + self.modifier * 2) as f64 / 2.0
+        if self.count <= 0 {
+            return self.modifier as f64;
+        }
+
+        let m = self.max;
+        let r = self.reroll.map_or(0, |reroll| reroll.0);
+        let t = self.explode.map_or(m + 1, |explode| explode.0);
+
+        let e_plain = Self::expected_plain(m, r, t);
+        let e_first = Self::expected_first_die(m, r, t, self.advantage, e_plain);
+
+        e_first + (self.count - 1) as f64 * e_plain + self.modifier as f64
     }
 }
 
@@ -473,6 +528,68 @@ mod tests {
 
     fn parse(s: &str) -> Expression {
         ExpressionParser::new().parse(s).unwrap()
+    }
+
+    fn avg(s: &str) -> f64 {
+        parse(s).average_result()
+    }
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn average_plain_d6() {
+        assert_close(avg("d6"), 3.5);
+    }
+
+    #[test]
+    fn average_2d6_plus_3() {
+        assert_close(avg("2d6+3"), 10.0);
+    }
+
+    #[test]
+    fn average_d20() {
+        assert_close(avg("d20"), 10.5);
+    }
+
+    #[test]
+    fn average_d20_advantage() {
+        // E[max(X1,X2)] = (M+1)(4M-1)/(6M) = 21*79/120 = 13.825
+        assert_close(avg("ad20"), 13.825);
+    }
+
+    #[test]
+    fn average_d20_disadvantage() {
+        // E[min(X1,X2)] = (M+1)(2M+1)/(6M) = 21*41/120 = 7.175
+        assert_close(avg("sd20"), 7.175);
+    }
+
+    #[test]
+    fn average_d6_explode_on_6() {
+        // E = M(M+1)/(2(t-1)) = 42/10 = 4.2
+        assert_close(avg("d6!"), 4.2);
+    }
+
+    #[test]
+    fn average_d6_explode_on_5() {
+        // E = 42/8 = 5.25
+        assert_close(avg("d6!5"), 5.25);
+    }
+
+    #[test]
+    fn average_2d6_reroll_1s() {
+        // E per die = (r+1+M)/2 = 8/2 = 4; total = 2*4 = 8
+        assert_close(avg("2d6r"), 8.0);
+    }
+
+    #[test]
+    fn average_d6_reroll_and_explode() {
+        // E = (r+1+M)(M-r) / (2(t-1-r)) = 8*5/(2*3) = 40/6
+        assert_close(avg("d6r!5"), 40.0 / 6.0);
     }
 
     fn count_max(count: i32, max: i32) -> Expression {
