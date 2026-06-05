@@ -1,4 +1,5 @@
 mod args;
+mod default_iter;
 mod error;
 mod expression;
 mod history;
@@ -17,6 +18,8 @@ use history::History;
 use realize::{RandomRealizer, Realizer};
 use serde::{Deserialize, Serialize};
 use squirrel_rng::SquirrelRng;
+
+use crate::default_iter::DefaultIfEmpty;
 
 type Result<T, E = error::Error> = std::result::Result<T, E>;
 
@@ -132,7 +135,8 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
     // FIXME: Add verbose mode that prints expressions, but don't bother
     // printing expressions under normal circumstances.
 
-    for expression in expand_expressions(args.candidates()) {
+    let expressions = expand_expressions(args.candidates()).default_if_empty("1d20");
+    for expression in expressions {
         if let Some(formula) = aliases.get(expression) {
             table.add_row([expression, formula.comment.as_deref().unwrap_or("")]);
 
@@ -155,10 +159,9 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
         }
     }
 
-    table
-        .column_mut(0)
-        .expect("table has two columns")
-        .set_cell_alignment(comfy_table::CellAlignment::Right);
+    if let Some(cell) = table.column_mut(0) {
+        cell.set_cell_alignment(comfy_table::CellAlignment::Right);
+    }
 
     println!("{table}");
     history.append_log(realizer.finalize());
