@@ -284,15 +284,17 @@ impl From<RealizedExpression> for comfy_table::Row {
                 Highlight::High => write!(w, "   = {}", value.bright_green()),
                 Highlight::Low => write!(w, "   = {}", value.bright_red()),
                 Highlight::Normal => write!(w, "   = {}", value),
-            }.unwrap();
+            }
+            .unwrap();
         }
-        
+
         for (highlight, value) in results {
             match highlight {
                 Highlight::High => write!(w, " + {}", value.bright_green()),
                 Highlight::Low => write!(w, " + {}", value.bright_red()),
                 Highlight::Normal => write!(w, " + {}", value),
-            }.unwrap();
+            }
+            .unwrap();
         }
 
         row.add_cell(w.into());
@@ -331,7 +333,9 @@ fn parse_threshold_token(
 
 #[cfg(test)]
 mod tests {
-    use crate::expression::{StrategyModifier, Explode, Expression, ExpressionParser, Realizer, Reroll};
+    use crate::expression::{
+        Explode, Expression, ExpressionParser, Realizer, Reroll, StrategyModifier,
+    };
 
     #[test]
     fn bounded_expression() {

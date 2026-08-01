@@ -17,7 +17,6 @@ use hashbrown::{HashMap, HashSet};
 use history::History;
 use realize::{RandomRealizer, Realizer};
 use serde::{Deserialize, Serialize};
-use squirrel_rng::SquirrelRng;
 
 use crate::default_iter::DefaultIfEmpty;
 
@@ -128,7 +127,7 @@ fn execute_expressions(paths: &PathConfig, args: &Args) -> Result<()> {
     let parser = ExpressionParser::new();
     let aliases = read_config(paths.config())?;
 
-    let mut realizer: RandomRealizer<SquirrelRng> = RandomRealizer::new();
+    let mut realizer: RandomRealizer = RandomRealizer::new();
     let mut realizer = realizer.with_logging();
     let mut history = History::new(paths.history());
     let mut table = configure_table();

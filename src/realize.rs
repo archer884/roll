@@ -1,36 +1,17 @@
 use hashbrown::HashMap;
-use rand::{
-    distr::{Distribution, Uniform},
-    Rng,
-};
 use smallvec::SmallVec;
+use squirrel_rng::SquirrelRng;
 
 pub use crate::expression::Realizer;
 
-pub trait InitializeBoundedRng: Rng + Sized {
-    fn initialize(max: i32) -> BoundedRng<Self>;
-}
-
-impl<R: Default + Rng> InitializeBoundedRng for R {
-    fn initialize(max: i32) -> BoundedRng<Self> {
-        BoundedRng(
-            Uniform::new_inclusive(1, max)
-                .unwrap()
-                .sample_iter(R::default()),
-        )
-    }
-}
-
 #[derive(Debug, Default)]
-pub struct RandomRealizer<R> {
-    source: HashMap<i32, BoundedRng<R>>,
+pub struct RandomRealizer {
+    source: SquirrelRng,
 }
 
-impl<I: InitializeBoundedRng> RandomRealizer<I> {
+impl RandomRealizer {
     pub fn new() -> Self {
-        Self {
-            source: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn with_logging(&'_ mut self) -> LogWrapper<'_, Self> {
@@ -41,12 +22,10 @@ impl<I: InitializeBoundedRng> RandomRealizer<I> {
     }
 }
 
-impl<I: InitializeBoundedRng> Realizer for RandomRealizer<I> {
+impl Realizer for RandomRealizer {
     fn next(&mut self, max: i32) -> i32 {
-        self.source
-            .entry(max)
-            .or_insert_with(|| I::initialize(max))
-            .next()
+        assert!(max > 0, "die size must be positive");
+        self.source.gen_range(1..(max as u32 + 1)) as i32
     }
 }
 
@@ -66,14 +45,5 @@ impl<'r, R: Realizer> Realizer for LogWrapper<'r, R> {
         let result = self.realizer.next(max);
         self.log.entry(max).or_default().push(result);
         result
-    }
-}
-
-#[derive(Debug)]
-pub struct BoundedRng<R>(rand::distr::Iter<Uniform<i32>, R, i32>);
-
-impl<R: Rng> BoundedRng<R> {
-    fn next(&mut self) -> i32 {
-        self.0.next().unwrap()
     }
 }
